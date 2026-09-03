@@ -479,17 +479,27 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
   ctx.fillStyle = 'rgba(0,0,0,0.45)'
   ctx.fill()
 
-  // Real logo image (a.logoUrl) takes priority when it loads
-  const hasLogo = !!a.logoUrl
-  const cached = hasLogo ? teamLogoCache.get(a.logoUrl) : null
+  const logoPath = a.logoUrl || (team ? team.logoUrl : null)
+  const hasLogo = !!logoPath
+  const cached = hasLogo ? teamLogoCache.get(logoPath) : null
+
   if (hasLogo) {
-    if (!teamLogoCache.has(a.logoUrl)) {
+    if (!teamLogoCache.has(logoPath)) {
       const img = new Image()
       img.crossOrigin = 'anonymous'
-      img.onload = () => teamLogoCache.set(a.logoUrl, img)
-      img.onerror = () => teamLogoCache.set(a.logoUrl, false)
-      img.src = a.logoUrl
-      teamLogoCache.set(a.logoUrl, null) // mark pending
+      img.onload = () => teamLogoCache.set(logoPath, img)
+      img.onerror = () => {
+        const raw = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath
+        const fallback = new Image()
+        fallback.onload = () => teamLogoCache.set(logoPath, fallback)
+        fallback.onerror = () => teamLogoCache.set(logoPath, false)
+        fallback.src = `./${raw}`
+      }
+      const raw = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath
+      const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './'
+      const full = baseUrl.endsWith('/') ? `${baseUrl}${raw}` : `${baseUrl}/${raw}`
+      img.src = full
+      teamLogoCache.set(logoPath, null)
     }
     if (cached && cached.width > 0) {
       ctx.beginPath()

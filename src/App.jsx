@@ -95,9 +95,20 @@ export default function App() {
     const active = MAPS[mapId]
     if (active && active.image && !loadedImages[mapId]) {
       const img = new Image()
-      img.src = active.image
+      const rawPath = active.image.startsWith('/') ? active.image.slice(1) : active.image
+      const baseUrl = import.meta.env.BASE_URL || './'
+      const fullPath = baseUrl.endsWith('/') ? `${baseUrl}${rawPath}` : `${baseUrl}/${rawPath}`
+
+      img.src = fullPath
       img.onload = () => {
         setLoadedImages((prev) => ({ ...prev, [mapId]: img }))
+      }
+      img.onerror = () => {
+        const fallbackImg = new Image()
+        fallbackImg.src = `./${rawPath}`
+        fallbackImg.onload = () => {
+          setLoadedImages((prev) => ({ ...prev, [mapId]: fallbackImg }))
+        }
       }
     }
   }, [mapId, customImage, loadedImages])

@@ -955,12 +955,21 @@ export default function MapCanvas(props) {
                   >
                     {t.logoUrl ? (
                       <img
-                        src={t.logoUrl}
+                        src={t.logoUrl.startsWith('/') ? `${import.meta.env.BASE_URL}${t.logoUrl.slice(1)}` : `${import.meta.env.BASE_URL}${t.logoUrl}`}
                         alt={t.name}
                         loading="lazy"
                         draggable={false}
                         className="h-full w-full object-cover"
-                        onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        onError={(e) => {
+                          const raw = t.logoUrl.startsWith('/') ? t.logoUrl.slice(1) : t.logoUrl
+                          const fallback = `./${raw}`
+                          if (!e.currentTarget.dataset.retried) {
+                            e.currentTarget.dataset.retried = 'true'
+                            e.currentTarget.src = fallback
+                          } else {
+                            e.currentTarget.style.display = 'none'
+                          }
+                        }}
                       />
                     ) : (
                       <>{t.short}</>

@@ -2,7 +2,7 @@ export const MAPS = {
   erangel: {
     id: 'erangel',
     name: 'Erangel',
-    image: '/maps/erangel.jpg',
+    image: 'maps/erangel.jpg',
     size: 8000,
     coast: 60,
     theme: {
@@ -35,7 +35,7 @@ export const MAPS = {
   miramar: {
     id: 'miramar',
     name: 'Miramar',
-    image: '/maps/miramar.jpg',
+    image: 'maps/miramar.jpg',
     size: 8000,
     coast: 15,
     theme: {
@@ -123,7 +123,7 @@ export const MAPS = {
   rondo: {
     id: 'rondo',
     name: 'Rondo',
-    image: '/maps/rondo.jpg',
+    image: 'maps/rondo.jpg',
     size: 8000,
     coast: 25,
     theme: {

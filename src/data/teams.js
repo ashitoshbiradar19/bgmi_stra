@@ -25,7 +25,7 @@ function team(name, short, rank, i, opts = {}) {
     color,
     color2,
     event: 'KIE Global Leaderboard 2026',
-    logoUrl: opts.logo === false ? undefined : `/logos/${short.toUpperCase()}.png`,
+    logoUrl: opts.logo === false ? undefined : `logos/${short.toUpperCase()}.png`,
     ...(opts.players ? { players: opts.players } : {}),
   }
 }
