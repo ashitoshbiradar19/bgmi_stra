@@ -507,7 +507,18 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
       ctx.clip()
       ctx.fillStyle = color2
       ctx.fillRect(x - 16 * k, y - 18 * k, 32 * k, 32 * k)
-      ctx.drawImage(cached, x - 16 * k, y - 18 * k, 32 * k, 32 * k)
+
+      // Preserve natural aspect ratio & center logo inside badge plate
+      const iw = cached.width
+      const ih = cached.height
+      const maxDim = 28 * k
+      const scale = Math.min(maxDim / iw, maxDim / ih)
+      const dw = iw * scale
+      const dh = ih * scale
+      const dx = x - dw / 2
+      const dy = (y - 2 * k) - dh / 2
+
+      ctx.drawImage(cached, dx, dy, dw, dh)
       ctx.restore()
     } else {
       drawEmblem(ctx, x, y, k, team || { id: a.teamId, name: a.label, short: '', color, color2 })

@@ -91,27 +91,27 @@ export default function App() {
   const [loadedImages, setLoadedImages] = useState({})
 
   useEffect(() => {
-    if (customImage) return
-    const active = MAPS[mapId]
-    if (active && active.image && !loadedImages[mapId]) {
-      const img = new Image()
-      const rawPath = active.image.startsWith('/') ? active.image.slice(1) : active.image
-      const baseUrl = import.meta.env.BASE_URL || './'
-      const fullPath = baseUrl.endsWith('/') ? `${baseUrl}${rawPath}` : `${baseUrl}/${rawPath}`
+    Object.entries(MAPS).forEach(([id, active]) => {
+      if (active.image && !loadedImages[id]) {
+        const img = new Image()
+        const rawPath = active.image.startsWith('/') ? active.image.slice(1) : active.image
+        const baseUrl = import.meta.env.BASE_URL || './'
+        const fullPath = baseUrl.endsWith('/') ? `${baseUrl}${rawPath}` : `${baseUrl}/${rawPath}`
 
-      img.src = fullPath
-      img.onload = () => {
-        setLoadedImages((prev) => ({ ...prev, [mapId]: img }))
-      }
-      img.onerror = () => {
-        const fallbackImg = new Image()
-        fallbackImg.src = `./${rawPath}`
-        fallbackImg.onload = () => {
-          setLoadedImages((prev) => ({ ...prev, [mapId]: fallbackImg }))
+        img.src = fullPath
+        img.onload = () => {
+          setLoadedImages((prev) => ({ ...prev, [id]: img }))
+        }
+        img.onerror = () => {
+          const fallbackImg = new Image()
+          fallbackImg.src = `./${rawPath}`
+          fallbackImg.onload = () => {
+            setLoadedImages((prev) => ({ ...prev, [id]: fallbackImg }))
+          }
         }
       }
-    }
-  }, [mapId, customImage, loadedImages])
+    })
+  }, [loadedImages])
 
   const mapImage = useMemo(() => {
     if (customImage) return customImage.canvas

@@ -946,11 +946,11 @@ export default function MapCanvas(props) {
                   title={`${t.name} · ${t.event}`}
                 >
                   <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border text-[10px] font-black text-white"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border p-0.5 text-[10px] font-black text-white"
                     style={{
-                      background: `linear-gradient(135deg, ${t.color2}, #0a0a0f)`,
-                      borderColor: t.color,
-                      boxShadow: `0 0 6px ${t.color}33`,
+                      background: `linear-gradient(135deg, ${t.color2 || '#1e293b'}, #0f172a)`,
+                      borderColor: t.color || '#38bdf8',
+                      boxShadow: `0 0 8px ${t.color || '#38bdf8'}33`,
                     }}
                   >
                     {t.logoUrl ? (
@@ -959,7 +959,7 @@ export default function MapCanvas(props) {
                         alt={t.name}
                         loading="lazy"
                         draggable={false}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-contain filter drop-shadow-sm"
                         onError={(e) => {
                           const raw = t.logoUrl.startsWith('/') ? t.logoUrl.slice(1) : t.logoUrl
                           const fallback = `./${raw}`
