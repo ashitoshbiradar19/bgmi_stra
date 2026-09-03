@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { computeView, renderScene } from '../lib/render'
-import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search } from 'lucide-react'
+import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose } from 'lucide-react'
 import { TEAMS } from '../data/teams'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
@@ -61,6 +61,9 @@ export default function MapCanvas(props) {
     removeAnno,
     exportRef,
     addCircleAt,
+    isMobile,
+    mobilePanelOpen,
+    setMobilePanelOpen,
   } = props
 
   const wrapRef = useRef(null)
@@ -253,7 +256,7 @@ export default function MapCanvas(props) {
   const hitCircle = (wx, wy, cs) => {
     const v = viewRef.current
     const minR = 14 / (v.ppm * v.zoom)
-    const sorted = [...cs].sort((a, b) => a.r - b.r)
+    const sorted = [...cs].sort((a, b) => b.r - a.r)
     for (const c of sorted) {
       if (Math.hypot(wx - c.x, wy - c.y) <= Math.max(c.r, minR)) return c
     }
@@ -386,9 +389,10 @@ export default function MapCanvas(props) {
       const c = hitCircle(wx, wy, cs)
       if (c) {
         propsRef.current.setSelectedId(c.id)
-        const distFromCenter = Math.hypot(wx - c.x, wy - c.y)
-        const tolRadius = 45 / (viewRef.current.ppm * viewRef.current.zoom)
-        if (Math.abs(distFromCenter - c.r) <= tolRadius) {
+        const ppmZ = viewRef.current.ppm * viewRef.current.zoom
+        const distFromEdge = Math.abs(Math.hypot(wx - c.x, wy - c.y) - c.r)
+        const edgeTol = 30 / ppmZ
+        if (distFromEdge <= edgeTol) {
           interRef.current = { mode: 'drag-circle-resize', id: c.id, moved: false }
         } else {
           interRef.current = { mode: 'drag-circle', id: c.id, dx: wx - c.x, dy: wy - c.y, moved: false }
@@ -463,15 +467,7 @@ export default function MapCanvas(props) {
     }
 
     if (tool === 'flight' || tool === 'flight1' || tool === 'flight2') {
-      const it = interRef.current
-      if ((it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') && it.start) {
-        const color = tool === 'flight2' ? '#a855f7' : '#38bdf8'
-        add({ id: uid(), type: tool, color, points: [it.start, [wx, wy]] })
-        pushHistory()
-        interRef.current = { mode: null }
-      } else {
-        interRef.current = { mode: tool, start: [wx, wy] }
-      }
+      interRef.current = { mode: tool, start: [wx, wy], end: [wx, wy] }
       requestRender()
     }
   }
@@ -572,7 +568,7 @@ export default function MapCanvas(props) {
         it.pts.push([wx, wy])
         requestRender()
       }
-    } else if (it.mode === 'seg' || it.mode === 'compound' || it.mode === 'flight') {
+    } else if (it.mode === 'seg' || it.mode === 'compound' || it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') {
       it.end = [wx, wy]
       requestRender()
     }
@@ -611,19 +607,27 @@ export default function MapCanvas(props) {
       propsRef.current.addAnno({ id: uid(), type: 'brush', color: pc, points: it.pts })
       propsRef.current.pushHistory()
     } else if (
-      (it.mode === 'seg' || it.mode === 'compound') &&
+      (it.mode === 'seg' ||
+        it.mode === 'compound' ||
+        it.mode === 'flight' ||
+        it.mode === 'flight1' ||
+        it.mode === 'flight2') &&
       it.end &&
       Math.hypot(it.end[0] - it.start[0], it.end[1] - it.start[1]) > 5
     ) {
-      const a =
-        it.mode === 'compound'
-          ? { id: uid(), type: 'compound', color: '#f97316', points: [it.start, it.end] }
-          : { id: uid(), type: it.kind, color: pc, points: [it.start, it.end] }
+      let a
+      if (it.mode === 'compound') {
+        a = { id: uid(), type: 'compound', color: '#f97316', points: [it.start, it.end] }
+      } else if (it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') {
+        const color = it.mode === 'flight2' ? '#a855f7' : '#38bdf8'
+        a = { id: uid(), type: it.mode, color, points: [it.start, it.end] }
+      } else {
+        a = { id: uid(), type: it.kind, color: pc, points: [it.start, it.end] }
+      }
       propsRef.current.addAnno(a)
       propsRef.current.pushHistory()
     }
-    if (it.mode !== 'flight') interRef.current = { mode: null }
-    else it.end = null
+    interRef.current = { mode: null }
     requestRender()
   }
 
@@ -764,7 +768,7 @@ export default function MapCanvas(props) {
       />
 
       {/* Floating Zoom Controls */}
-      <div className="absolute right-[292px] top-4 z-20 flex flex-col gap-1.5 rounded-2xl border border-slate-800/50 bg-[#0B1120]/95 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+      <div className={`absolute right-2 sm:right-[292px] top-4 z-20 flex flex-col gap-1.5 rounded-2xl border border-slate-800/50 bg-[#0B1120]/95 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl`}>
         <button
           onClick={() => handleZoom(1.25)}
           className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800/60 hover:text-slate-200 active:scale-95"
@@ -795,7 +799,16 @@ export default function MapCanvas(props) {
       </div>
 
       {/* Fixed Right-Side Tools Panel */}
-      <div className="absolute right-0 top-0 bottom-0 z-30 flex w-[280px] flex-col border-l border-slate-800/50 bg-[#090E1A]/98 shadow-[-8px_0_32px_rgba(0,0,0,0.3)] backdrop-blur-2xl animate-fade-in">
+      {(!isMobile || mobilePanelOpen) && (
+        <>
+          {/* Mobile: backdrop overlay */}
+          {isMobile && mobilePanelOpen && (
+            <div
+              className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm animate-fade-in"
+              onClick={() => setMobilePanelOpen(false)}
+            />
+          )}
+          <div className={`${isMobile ? 'fixed inset-y-0 right-0 z-40 w-[85vw] max-w-[320px] animate-slide-left' : 'absolute right-0 top-0 bottom-0 z-30 w-[280px]'} flex flex-col border-l border-slate-800/50 bg-[#090E1A]/98 shadow-[-8px_0_32px_rgba(0,0,0,0.3)] backdrop-blur-2xl animate-fade-in`}>
         {/* Panel Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-slate-800/50 px-4 py-3">
           <div className="flex items-center gap-2.5 text-[13px] font-extrabold text-white">
@@ -1265,12 +1278,14 @@ export default function MapCanvas(props) {
             ) : null}
           </div>
         </div>
+        </>
+      )}
 
       {/* Coordinate Readout */}
       <div
         ref={coordRef}
         style={{ display: 'none' }}
-        className="pointer-events-none absolute bottom-4 right-[292px] z-20 rounded-xl border border-slate-800/50 bg-[#0B1120]/95 px-3.5 py-2 font-mono text-[11px] font-semibold text-amber-400/80 shadow-[0_4px_16px_rgba(0,0,0,0.3)] backdrop-blur-2xl"
+        className={`pointer-events-none absolute bottom-4 ${isMobile ? 'right-2' : 'right-[292px]'} z-20 rounded-xl border border-slate-800/50 bg-[#0B1120]/95 px-3.5 py-2 font-mono text-[11px] font-semibold text-amber-400/80 shadow-[0_4px_16px_rgba(0,0,0,0.3)] backdrop-blur-2xl`}
       />
 
       {/* Active Tool Prompt */}

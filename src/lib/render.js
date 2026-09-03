@@ -972,9 +972,13 @@ export function renderScene(ctx, W, H, s) {
   drawTournamentOverlays(ctx, mapId, X, Y, t, mapSize, showHeatmap, showContours, S)
 
   for (const h of highlights) drawHighlight(ctx, h, X, Y, t, S)
-  for (const a of annos) drawAnno(ctx, a, X, Y, S, selectedId, Z)
-  if (temp) drawAnno(ctx, temp, X, Y, S, null, Z)
+
+  const isFlight = (a) => a.type === 'flight' || a.type === 'flight1' || a.type === 'flight2'
+
+  for (const a of annos) if (isFlight(a)) drawAnno(ctx, a, X, Y, S, selectedId, Z)
   for (const c of circles) drawCircle(ctx, c, X, Y, selectedId, t, S)
+  for (const a of annos) if (!isFlight(a)) drawAnno(ctx, a, X, Y, S, selectedId, Z)
+  if (temp) drawAnno(ctx, temp, X, Y, S, null, Z)
 
   ctx.restore()
   ctx.restore()

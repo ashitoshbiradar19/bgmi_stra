@@ -21,6 +21,9 @@ import {
   Trash2,
   Plus,
   Clock,
+  Menu,
+  PanelLeftOpen,
+  PanelRightOpen,
 } from 'lucide-react'
 import MapCanvas from './components/MapCanvas'
 import Sidebar from './components/Sidebar'
@@ -71,6 +74,9 @@ export default function App() {
   const [savedModalOpen, setSavedModalOpen] = useState(false)
   const [newStrategyTitle, setNewStrategyTitle] = useState('')
   const [savedStrategiesList, setSavedStrategiesList] = useState(() => getSavedStrategies())
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [mobilePanelOpen, setMobilePanelOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const exportRef = useRef(() => {})
   const fileRef = useRef(null)
@@ -290,6 +296,14 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [mapMenuOpen])
 
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const snapshotNowRef = useRef(snapshotNow)
   snapshotNowRef.current = snapshotNow
 
@@ -411,9 +425,35 @@ export default function App() {
   )
 
   const updateCircleRadius = useCallback((id, r) => {
-    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
-    setRedoStack([])
-    setCircles((cs) => cs.map((c) => (c.id === id ? { ...c, r: Math.max(5, Math.round(r)) } : c)))
+    setCircles((cs) => {
+      const newR = Math.max(5, Math.round(r))
+      const target = cs.find((c) => c.id === id)
+      if (!target) return cs.map((c) => (c.id === id ? { ...c, r: newR } : c))
+
+      const sorted = [...cs].sort((a, b) => a.stage - b.stage)
+      let result = cs.map((c) => (c.id === id ? { ...c, r: newR } : c))
+
+      const getR = (stage) => result.find((c) => c.stage === stage)?.r
+
+      for (let s = 2; s <= 8; s++) {
+        const prevR = getR(s - 1)
+        const curR = getR(s)
+        if (prevR != null && curR != null && curR > prevR) {
+          result = result.map((c) => (c.stage === s ? { ...c, r: prevR } : c))
+        }
+      }
+
+      const targetUpdated = result.find((c) => c.id === id)
+      for (const c of sorted) {
+        if (c.stage > target.stage && c.id !== id) {
+          if (c.r > targetUpdated.r) {
+            result = result.map((rc) => (rc.id === c.id ? { ...rc, r: targetUpdated.r } : rc))
+          }
+        }
+      }
+
+      return result
+    })
   }, [])
 
   const derivedCircles = useMemo(
@@ -645,10 +685,21 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-[#060910] bg-tactical-grid text-slate-100 font-sans select-none overflow-hidden">
       {/* ================= Header Navbar ================= */}
-      <header className="flex shrink-0 items-center gap-2 border-b border-slate-800/60 bg-[#0B1120]/95 px-3 sm:px-4 py-2 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-2xl z-30">
+      <header className="flex shrink-0 items-center gap-1.5 sm:gap-2 border-b border-slate-800/60 bg-[#0B1120]/95 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-2xl z-30">
+        {/* Mobile: Sidebar Toggle */}
+        {isMobile && (
+          <button
+            onClick={() => { setMobileSidebarOpen((o) => !o); setMobilePanelOpen(false) }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 active:scale-95 min-h-[44px] min-w-[44px]"
+            title="Toggle Sidebar"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        )}
+
         {/* Brand */}
-        <div className="flex items-center gap-3 pr-2">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-[10px] bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 font-black text-slate-950 text-sm shadow-[0_0_24px_rgba(251,191,36,0.3)] transition-shadow hover:shadow-[0_0_32px_rgba(251,191,36,0.5)]">
+        <div className="flex items-center gap-2 sm:gap-3 pr-1 sm:pr-2">
+          <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-[10px] bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 font-black text-slate-950 text-xs sm:text-sm shadow-[0_0_24px_rgba(251,191,36,0.3)] transition-shadow hover:shadow-[0_0_32px_rgba(251,191,36,0.5)]">
             B
             <div className="absolute -inset-0.5 rounded-[11px] bg-gradient-to-br from-amber-400/20 to-yellow-400/20 blur-sm -z-10" />
           </div>
@@ -661,23 +712,23 @@ export default function App() {
         </div>
 
         {/* Divider */}
-        <div className="hidden sm:block h-6 w-px bg-slate-700/50 mx-1" />
+        <div className="hidden md:block h-6 w-px bg-slate-700/50 mx-1" />
 
         {/* Map Selector */}
         <div className="relative ml-0.5" ref={mapMenuRef}>
           <button
             onClick={() => setMapMenuOpen((o) => !o)}
-            className="flex h-10 items-center gap-2 rounded-xl border border-slate-700/60 bg-slate-800/50 px-3.5 text-[11px] font-bold text-slate-100 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800/80 active:scale-[0.98] min-h-[44px]"
+            className="flex h-9 sm:h-10 items-center gap-1.5 sm:gap-2 rounded-xl border border-slate-700/60 bg-slate-800/50 px-2.5 sm:px-3.5 text-[10px] sm:text-[11px] font-bold text-slate-100 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800/80 active:scale-[0.98] min-h-[44px]"
             aria-expanded={mapMenuOpen}
             aria-haspopup="true"
           >
             <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-            <span className="max-w-[100px] truncate">{mapName}</span>
-            <ChevronDown size={13} className={`text-slate-500 transition-transform duration-200 ${mapMenuOpen ? 'rotate-180' : ''}`} />
+            <span className="max-w-[70px] sm:max-w-[100px] truncate">{mapName}</span>
+            <ChevronDown size={12} className={`text-slate-500 transition-transform duration-200 ${mapMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {mapMenuOpen && (
-            <div className="absolute left-0 top-full z-40 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-700/60 bg-[#090E1A] shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl animate-slide-down">
+            <div className="absolute left-0 top-full z-40 mt-2 w-72 max-w-[90vw] overflow-hidden rounded-2xl border border-slate-700/60 bg-[#090E1A] shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-2xl animate-slide-down">
               <div className="px-4 py-2.5 text-[9px] font-extrabold uppercase tracking-[0.2em] text-slate-500 border-b border-slate-800/60">
                 Select Map
               </div>
@@ -718,8 +769,8 @@ export default function App() {
         </div>
         <input ref={fileRef} type="file" accept="image/png,image/jpeg" className="hidden" onChange={onUploadFile} />
 
-        {/* Grid & Mask Toggles */}
-        <div className="ml-1 flex items-center gap-1">
+        {/* Grid & Mask Toggles - hidden on very small screens, shown in overflow menu */}
+        <div className="hidden sm:flex ml-1 items-center gap-1">
           {[
             { on: gridOn, toggle: () => setGridOn((g) => !g), icon: Grid3X3, label: '1km', title: 'Toggle 1km Major Grid' },
             { on: minorGridOn, toggle: () => setMinorGridOn((g) => !g), icon: Grid2X2, label: '100m', title: 'Toggle 100m Minor Grid' },
@@ -729,37 +780,38 @@ export default function App() {
               key={item.title}
               onClick={item.toggle}
               title={item.title}
-              className={`flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-[11px] font-bold transition-all duration-200 active:scale-[0.96] min-h-[44px] ${
+              className={`flex h-9 sm:h-10 items-center gap-1 sm:gap-1.5 rounded-xl border px-2 sm:px-2.5 text-[10px] sm:text-[11px] font-bold transition-all duration-200 active:scale-[0.96] min-h-[44px] ${
                 item.on
                   ? 'border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.12)]'
                   : 'border-slate-700/40 bg-slate-800/30 text-slate-500 hover:border-slate-600 hover:text-slate-300'
               }`}
             >
               <item.icon size={14} className={item.on ? 'text-amber-400' : ''} />
-              <span className="hidden sm:inline">{item.label}</span>
+              <span className="hidden md:inline">{item.label}</span>
             </button>
           ))}
         </div>
 
         {/* Actions Bar */}
         <div className="ml-auto flex items-center gap-1">
+          {/* Undo/Redo - icon only on mobile */}
           <button
             onClick={onUndo}
             disabled={!undoStack.length}
             title="Undo (Ctrl+Z)"
             aria-label="Undo"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
           >
-            <Undo2 size={15} />
+            <Undo2 size={14} />
           </button>
           <button
             onClick={onRedo}
             disabled={!redoStack.length}
             title="Redo (Ctrl+Shift+Z)"
             aria-label="Redo"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
           >
-            <Redo2 size={15} />
+            <Redo2 size={14} />
           </button>
 
           <div className="hidden sm:block h-5 w-px bg-slate-700/40 mx-1" />
@@ -767,21 +819,29 @@ export default function App() {
           {/* Strategy Manager Button */}
           <button
             onClick={() => setSavedModalOpen(true)}
-            className="flex h-10 items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3.5 text-[11px] font-bold text-cyan-300 transition-all duration-200 hover:bg-cyan-500/20 active:scale-95 min-h-[44px]"
+            className="hidden sm:flex h-9 sm:h-10 items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-2.5 sm:px-3.5 text-[10px] sm:text-[11px] font-bold text-cyan-300 transition-all duration-200 hover:bg-cyan-500/20 active:scale-95 min-h-[44px]"
             title="Saved Boards & Strategy Management"
           >
             <FolderOpen size={14} className="text-cyan-400" />
-            <span className="hidden sm:inline">Saved Boards</span>
+            <span className="hidden md:inline">Saved Boards</span>
             {savedStrategiesList.length > 0 && (
               <span className="ml-0.5 rounded-full bg-cyan-400 px-1.5 py-0.2 font-mono text-[9px] font-extrabold text-slate-950">
                 {savedStrategiesList.length}
               </span>
             )}
           </button>
+          {/* Mobile: compact saved boards button */}
+          <button
+            onClick={() => setSavedModalOpen(true)}
+            className="sm:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 min-h-[44px] min-w-[44px]"
+            title="Saved Boards"
+          >
+            <FolderOpen size={14} />
+          </button>
 
           <button
             onClick={() => setHelpOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 hover:border-slate-600 hover:text-slate-200 active:scale-95 min-h-[44px] min-w-[44px]"
+            className="hidden sm:flex h-9 sm:h-10 w-9 sm:w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 hover:border-slate-600 hover:text-slate-200 active:scale-95 min-h-[44px] min-w-[44px]"
             title="Keyboard Shortcuts (?)"
             aria-label="Keyboard Shortcuts"
           >
@@ -790,17 +850,28 @@ export default function App() {
 
           <button
             onClick={shareState}
-            className="hidden sm:flex h-10 items-center gap-1.5 rounded-xl border border-slate-700/40 bg-slate-800/30 px-3.5 text-[11px] font-bold text-slate-300 transition-all duration-200 hover:border-slate-600 hover:text-white active:scale-95 min-h-[44px]"
+            className="hidden md:flex h-9 sm:h-10 items-center gap-1.5 rounded-xl border border-slate-700/40 bg-slate-800/30 px-2.5 sm:px-3.5 text-[10px] sm:text-[11px] font-bold text-slate-300 transition-all duration-200 hover:border-slate-600 hover:text-white active:scale-95 min-h-[44px]"
           >
             <Share2 size={14} /> Share
           </button>
 
           <button
             onClick={() => exportRef.current?.()}
-            className="flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-4 text-[11px] font-extrabold text-slate-950 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,0.35)] hover:scale-[1.02] active:scale-95 min-h-[44px]"
+            className="flex h-9 sm:h-10 items-center gap-1 sm:gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-2.5 sm:px-4 text-[10px] sm:text-[11px] font-extrabold text-slate-950 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,0.35)] hover:scale-[1.02] active:scale-95 min-h-[44px]"
           >
-            <Download size={14} /> Export
+            <Download size={13} /> <span className="hidden sm:inline">Export</span>
           </button>
+
+          {/* Mobile: Panel Toggle */}
+          {isMobile && (
+            <button
+              onClick={() => { setMobilePanelOpen((o) => !o); setMobileSidebarOpen(false) }}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 active:scale-95 min-h-[44px] min-w-[44px]"
+              title="Toggle Tools Panel"
+            >
+              <PanelRightOpen size={16} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -823,61 +894,130 @@ export default function App() {
       )}
 
       {/* ================= Main Content Body ================= */}
-      <div className="flex min-h-0 flex-1">
-        <Sidebar
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          tab={tab}
-          setTab={setTab}
-          activeTool={activeTool}
-          setActiveTool={setActiveTool}
-          penColor={penColor}
-          setPenColor={setPenColor}
-          layers={layers}
-          toggleLayer={toggleLayer}
-          onUndo={onUndo}
-          onRedo={onRedo}
-          canUndo={!!undoStack.length}
-          canRedo={!!redoStack.length}
-          clearAnnos={clearAnnos}
-          training={training}
-          onPickTraining={(id) => setTraining((t) => (t === id ? null : id))}
-          onApplyTeam={(team) => {
-            pushHistory()
-            const teamAnno = {
-              id: uid(),
-              type: 'text',
-              color: team.color,
-              label: team.name,
-              fontSize: 22,
-              points: [[0, 0]],
-            }
-            setAnnos((as) => [...as, teamAnno])
-            showToast(`Applied ${team.name} to map`)
-          }}
-          circles={circles}
-          derivedCircles={derivedCircles}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
-          addCircleAt={addCircleAt}
-          removeCircle={removeCircle}
-          updateCircleRadius={updateCircleRadius}
-          onLoadPreset={onLoadPreset}
-          activeMapId={mapId}
-          onSelectMap={selectMap}
-          showHeatmap={showHeatmap}
-          setShowHeatmap={setShowHeatmap}
-          showContours={showContours}
-          setShowContours={setShowContours}
-          showBlueZoneMask={showBlueZoneMask}
-          setShowBlueZoneMask={setShowBlueZoneMask}
-          handleColorSelect={handleColorSelect}
-          updateAnnoFontSize={updateAnnoFontSize}
-          updateAnnoWidth={updateAnnoWidth}
-          updateAnnoLabel={updateAnnoLabel}
-          removeAnno={removeAnno}
-          annos={annos}
-        />
+      <div className="flex min-h-0 flex-1 relative">
+        {/* Desktop: Sidebar always visible */}
+        {!isMobile && (
+          <Sidebar
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+            tab={tab}
+            setTab={setTab}
+            activeTool={activeTool}
+            setActiveTool={setActiveTool}
+            penColor={penColor}
+            setPenColor={setPenColor}
+            layers={layers}
+            toggleLayer={toggleLayer}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={!!undoStack.length}
+            canRedo={!!redoStack.length}
+            clearAnnos={clearAnnos}
+            training={training}
+            onPickTraining={(id) => setTraining((t) => (t === id ? null : id))}
+            onApplyTeam={(team) => {
+              pushHistory()
+              const teamAnno = {
+                id: uid(),
+                type: 'text',
+                color: team.color,
+                label: team.name,
+                fontSize: 22,
+                points: [[0, 0]],
+              }
+              setAnnos((as) => [...as, teamAnno])
+              showToast(`Applied ${team.name} to map`)
+            }}
+            circles={circles}
+            derivedCircles={derivedCircles}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+            addCircleAt={addCircleAt}
+            removeCircle={removeCircle}
+            updateCircleRadius={updateCircleRadius}
+            onLoadPreset={onLoadPreset}
+            activeMapId={mapId}
+            onSelectMap={selectMap}
+            showHeatmap={showHeatmap}
+            setShowHeatmap={setShowHeatmap}
+            showContours={showContours}
+            setShowContours={setShowContours}
+            showBlueZoneMask={showBlueZoneMask}
+            setShowBlueZoneMask={setShowBlueZoneMask}
+            handleColorSelect={handleColorSelect}
+            updateAnnoFontSize={updateAnnoFontSize}
+            updateAnnoWidth={updateAnnoWidth}
+            updateAnnoLabel={updateAnnoLabel}
+            removeAnno={removeAnno}
+            annos={annos}
+          />
+        )}
+
+        {/* Mobile: Sidebar overlay */}
+        {isMobile && mobileSidebarOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm animate-fade-in"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <div className="fixed inset-y-0 left-0 z-50 w-[85vw] max-w-[340px] animate-slide-right">
+              <Sidebar
+                collapsed={false}
+                setCollapsed={() => setMobileSidebarOpen(false)}
+                tab={tab}
+                setTab={setTab}
+                activeTool={activeTool}
+                setActiveTool={(t) => { setActiveTool(t); setMobileSidebarOpen(false) }}
+                penColor={penColor}
+                setPenColor={setPenColor}
+                layers={layers}
+                toggleLayer={toggleLayer}
+                onUndo={onUndo}
+                onRedo={onRedo}
+                canUndo={!!undoStack.length}
+                canRedo={!!redoStack.length}
+                clearAnnos={clearAnnos}
+                training={training}
+                onPickTraining={(id) => setTraining((t) => (t === id ? null : id))}
+                onApplyTeam={(team) => {
+                  pushHistory()
+                  const teamAnno = {
+                    id: uid(),
+                    type: 'text',
+                    color: team.color,
+                    label: team.name,
+                    fontSize: 22,
+                    points: [[0, 0]],
+                  }
+                  setAnnos((as) => [...as, teamAnno])
+                  showToast(`Applied ${team.name} to map`)
+                }}
+                circles={circles}
+                derivedCircles={derivedCircles}
+                selectedId={selectedId}
+                setSelectedId={setSelectedId}
+                addCircleAt={addCircleAt}
+                removeCircle={removeCircle}
+                updateCircleRadius={updateCircleRadius}
+                onLoadPreset={onLoadPreset}
+                activeMapId={mapId}
+                onSelectMap={selectMap}
+                showHeatmap={showHeatmap}
+                setShowHeatmap={setShowHeatmap}
+                showContours={showContours}
+                setShowContours={setShowContours}
+                showBlueZoneMask={showBlueZoneMask}
+                setShowBlueZoneMask={setShowBlueZoneMask}
+                handleColorSelect={handleColorSelect}
+                updateAnnoFontSize={updateAnnoFontSize}
+                updateAnnoWidth={updateAnnoWidth}
+                updateAnnoLabel={updateAnnoLabel}
+                removeAnno={removeAnno}
+                annos={annos}
+              />
+            </div>
+          </>
+        )}
 
         <main className="relative min-w-0 flex-1">
           <MapCanvas
@@ -914,6 +1054,9 @@ export default function App() {
             removeAnno={removeAnno}
             exportRef={exportRef}
             addCircleAt={addCircleAt}
+            isMobile={isMobile}
+            mobilePanelOpen={mobilePanelOpen}
+            setMobilePanelOpen={setMobilePanelOpen}
           />
         </main>
       </div>
@@ -924,12 +1067,12 @@ export default function App() {
       {/* ================= Saved Strategy Manager Modal ================= */}
       {savedModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in"
           onClick={() => setSavedModalOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-[580px] max-w-[94vw] max-h-[85vh] flex flex-col rounded-2xl border border-cyan-500/30 bg-[#090E1A] shadow-[0_24px_64px_rgba(0,0,0,0.7)] animate-scale-in overflow-hidden"
+            className="w-full sm:w-[580px] max-w-[94vw] max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl border border-cyan-500/30 bg-[#090E1A] shadow-[0_24px_64px_rgba(0,0,0,0.7)] animate-slide-up sm:animate-scale-in overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Strategy Management"
@@ -1063,10 +1206,10 @@ export default function App() {
 
       {/* Keyboard Shortcuts Modal */}
       {helpOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setHelpOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setHelpOpen(false)}>
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-[460px] max-w-[92vw] rounded-2xl border border-slate-700/60 bg-[#0B1120] shadow-[0_24px_64px_rgba(0,0,0,0.5)] animate-scale-in"
+            className="w-full sm:w-[460px] max-w-[92vw] rounded-t-2xl sm:rounded-2xl border border-slate-700/60 bg-[#0B1120] shadow-[0_24px_64px_rgba(0,0,0,0.5)] animate-slide-up sm:animate-scale-in"
             role="dialog"
             aria-modal="true"
             aria-label="Keyboard Shortcuts"

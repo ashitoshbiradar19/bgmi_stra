@@ -171,7 +171,7 @@ export default function Sidebar(props) {
   ]
 
   return (
-    <aside className="flex h-full w-80 shrink-0 flex-col border-r border-slate-800/60 bg-[#090E1A] z-20 animate-fade-in">
+    <aside className="flex h-full w-full sm:w-80 shrink-0 flex-col border-r border-slate-800/60 bg-[#090E1A] z-20 animate-fade-in">
       {/* Tabs Navbar */}
       <div className="flex shrink-0 items-center border-b border-slate-800/60 bg-[#0B1120]/80">
         <div className="flex flex-1 items-center">
