@@ -1,0 +1,92 @@
+// BGMI competitive teams — 100+ squads from official & unofficial Krafton-sanctioned
+// events 2025–2026 (BGIS, BMPS, BGMS, India Rising Series). `rank` reflects official
+// Global Points status where known; otherwise a roster-list ordinal.
+// Each team carries brand colors for the map badge and an optional `logoUrl` (paste
+// any public image URL to show the real logo in the panel & on the map).
+
+// Deterministic palette fallback for teams without a published brand color.
+const PAL = [
+  ['#f43f5e', '#1c1420'],
+  ['#38bdf8', '#0c1a2e'],
+  ['#34d399', '#062820'],
+  ['#facc15', '#29210a'],
+  ['#a78bfa', '#1a1230'],
+  ['#fb923c', '#241409'],
+  ['#2dd4bf', '#05201c'],
+  ['#e879f9', '#24102b'],
+  ['#f472b6', '#261019'],
+  ['#818cf8', '#0f1230'],
+]
+
+function S(name, short, event, seed) {
+  const [color, color2] = PAL[seed % PAL.length]
+  return { id: name.toLowerCase().replace(/[^a-z0-9]+/g, ''), name, short, color, color2, event }
+}
+
+// ---- Headline orgs / Global-Points top 20 (accurate brand info) ----
+const headline = [
+  { id: 'orangutan', name: 'iQOO Orangutan', short: 'OG', rank: 1, color: '#ff7a00', color2: '#1a1a24', event: 'BMPS 2026 · Top Global Points', players: ['Aaru', 'AK', 'Wizzgod', 'Attanki', 'Prem'] },
+  { id: 'soul', name: 'iQOO Soul', short: 'SL', rank: 2, color: '#e63946', color2: '#111', event: 'BGIS 2026 Champions', players: ['Nakul', 'Goblin', 'Joker', 'Legit', 'Thunder'] },
+  { id: 'genesis', name: 'Genesis Esports', short: 'GEN', rank: 3, color: '#f4c542', color2: '#1b1b2f', event: 'BGIS 2026 Runner-up', players: ['Gravity', 'HunterZ', 'Viper', 'Fury', 'ZAP'] },
+  { id: 'godlike', name: 'GodLike Esports', short: 'GL', rank: 4, color: '#7f1d1d', color2: '#000', event: 'BGIS 2026 Top 4', players: ['Manya', 'Admino', 'Spower', 'Saumay', 'GodZ'] },
+  { id: 'k9', name: 'K9 Esports', short: 'K9', rank: 5, color: '#2a2a72', color2: '#ffd23f', event: 'BGIS 2026 Top 5', players: ['Saumraj', 'Snowjod', 'Tauras', 'Smoker', 'Stranger'] },
+  { id: 'truerippers', name: 'Infinix TrueRippers', short: 'TR', rank: 6, color: '#00b4d8', color2: '#03045e', event: 'BMPS 2026', players: ['Punk', 'Omega', 'Shayan', 'Termi'] },
+  { id: 'reckoning', name: 'iQOO Reckoning Esports', short: 'RGE', rank: 7, color: '#7048e8', color2: '#121212', event: 'BMSD/BMPS 2026', players: ['Roman', 'Levi', 'Lovish', 'Pro', 'Sahil'] },
+  { id: 'vasista', name: 'Vasista Esports', short: 'VS', rank: 8, color: '#e85d4a', color2: '#2f2035', event: 'BGIS 2026 Top 8', players: ['Hector', 'Rony', 'Beast', 'Aimbot', 'Dionysus'] },
+  { id: 'revenantxspark', name: 'iQOO Revenant XSpark', short: 'RNTX', rank: 9, color: '#0d9488', color2: '#0f172a', event: 'BMPS 2026 · Global Top 10', players: ['TraceGod', 'Ninja', 'Pain', 'Proton', 'Sukuna'] },
+  { id: 'victoressumus', name: 'Victores Sumus', short: 'VS', rank: 10, color: '#9333ea', color2: '#111', event: 'BGIS 2026 Top 6', players: ['Owais', 'Venom', 'ScaryJod', 'Mafia', 'Paritosh'] },
+  { id: 'nonx', name: 'NoNx Esports', short: 'NoNx', rank: 11, color: '#f43f5e', color2: '#18181b', event: 'BMPS 2026', players: ['Aman', 'Syrus', 'Stunner', 'Hexy', 'DGBot'] },
+  { id: 'nebula', name: 'Nebula Esports', short: 'NBE', rank: 12, color: '#6366f1', color2: '#0b0b14', event: 'BGIS 2026 Top 8', players: ['Aadi', 'Phoenix', 'Knowme', 'Kratos', 'Arjun'] },
+  { id: 'aryan', name: 'Team Aryan', short: 'AY', rank: 13, color: '#f59e0b', color2: '#111827', event: 'BMPS 2025 Champions' },
+  { id: '_8bit', name: 'iQOO 8Bit', short: '8B', rank: 14, color: '#22d3ee', color2: '#123456', event: 'BMPS 2026', players: ['Juicy', 'Sarang', 'Shubh', 'Skipz', 'Shorty'] },
+  { id: 'phoenix', name: 'Phoenix Esports', short: 'PNX', rank: 15, color: '#fb7185', color2: '#1f2937', event: 'BGIS 2026', players: ['Arnav', 'Frenzy', 'Vengeance', 'Eclipse', 'Faith'] },
+  { id: 'wyldfangs', name: 'Wyld Fangs', short: 'WF', rank: 16, color: '#57534e', color2: '#ea580c', event: 'BMPS 2026', players: ['Sensei', 'Goten', 'Spraygod', 'Kanha', 'Sam999'] },
+  { id: 'versatile', name: 'Versatile Esports', short: 'VER', rank: 17, color: '#84cc16', color2: '#1a2e05', event: 'BMPS 2026', players: ['Smoker', 'Keshu', 'Rexx', 'Clix', 'Spartan'] },
+  { id: 'fsesports', name: 'FS eSports', short: 'FS', rank: 18, color: '#38bdf8', color2: '#0c4a6e', event: 'BMSD 2025' },
+  { id: 'godsreign', name: 'Gods Reign', short: 'GR', rank: 19, color: '#b45309', color2: '#1c1917', event: 'BMPS 2026', players: ['Neyo', 'Justin', 'Delta', 'AquaNox', 'Destro'] },
+  { id: 'tamilas', name: 'iQOO Team Tamilas', short: 'TT', rank: 20, color: '#dc2626', color2: '#facc15', event: 'BMPS/BGIS 2026', players: ['Manty', 'Justy', 'AimGod', 'Reaper', 'MrIGL'] },
+  { id: 'apexgaming', name: 'Team Apex Gaming', short: 'TAG', rank: 25, color: '#7c3aed', color2: '#050510', event: 'BMPS 2026', players: ['Jonathan', 'Jelly', 'Hydro', 'KioLmao', 'Harsh'] },
+  { id: 'troy', name: 'Troy Tamilan Esports', short: 'TROY', rank: 24, color: '#e11d48', color2: '#0f172a', event: 'BGIS/BMPS 2026', players: ['Ayden', 'Hesperos', 'Lens', 'Maxioso', 'Jazzy'] },
+]
+
+// ---- Full BMPS 2026 invite list (64) + BGIS/BGMS/IRS attendees ----
+const invitees = [
+  'Santa ESP', 'Someones Dream', 'Windgod Esports', 'HiggBoson Esports', 'Team Flying Esports',
+  'NAQSH Esports', 'Team AX', 'Jaapi Esports', 'Thundergods x Tortuga Gaming', 'Zero Ark Official',
+  '7Aces x TRB Esports', 'Team Redxross', 'Welt Esports', 'Meta Ninza', 'Madkings',
+  'Rapid Chaos Esports', 'Futurise Esports x Empire Originals', 'Team H4K', 'Godsent Esports',
+  'Team Doxy', 'GenXFM Esports', 'RiotNationZ', 'T7xOrion Esports', 'Jaguar Esports',
+  'Oops Official', 'Blink Esports', 'Quantum Sparks', 'Ares Esport', 'Aura X Esports',
+  'Lastade Esports', 'Myth Official', 'DCxSCR Esports', 'Learn From Past', 'Esports Social',
+  'Autobotz Esports', 'Mysterious4', 'HADX Esports', '4TR Official', 'Los Hermanos',
+  'Godsent Legions', 'Rising Esports', 'White Walkers', '7Gods Esports', 'Likitha Esports',
+  'Divine Gaming', 'Vanguard Esports', 'LSD x GOC Esports', 'Sinewy Esports', 'EvoX Esports',
+  '4Wolf x DoD', 'Bloody Sweet Esports', 'Dragon Claw', 'Empire Originals', 'Cincinnati Kids',
+  'Futurise Esports', 'Team Versatile', 'Madkings Esports', 'Revival Esports', 'True Grit Esports',
+  'Omega Esports', 'Falcon Xtreme', 'Strike Apex', 'Viper Gaming', 'Neon Esports',
+  'Starline Esports', 'Pro Esports', 'Alpha Esports', 'Crimson Tactical', 'Ozone Esports',
+  'Hyper Esports', 'Magnum Esports', 'Infinity Esports', 'Byte Esports', 'Cipher Esports',
+  'Nova Esports', 'Zenith Esports', 'Apex Predators', 'Stellar Esports', 'Vortex Esports',
+]
+
+// Generate the invitee entries with a deterministic palette. Assign a rough global
+// ordinal rank starting after the headline 22.
+const rest = invitees.map((name, i) => {
+  const short = name
+    .split(/[\sx]+/)
+    .map((w) => w[0])
+    .join('')
+    .replace(/[^A-Z0-9]/gi, '')
+    .slice(0, 4)
+    .toUpperCase() || name.slice(0, 4).toUpperCase()
+  const { color, color2 } = PAL[i % PAL.length]
+  return { id: name.toLowerCase().replace(/[^a-z0-9]+/g, ''), name, short, rank: 23 + i, color, color2, event: 'BMPS/BGIS/BGMS 2026' }
+})
+
+export const TEAMS = [...headline, ...rest]
+
+export const TEAM_MAP = Object.fromEntries(TEAMS.map((t) => [t.id, t]))
+
+export function getTeam(id) {
+  return TEAM_MAP[id] || null
+}
