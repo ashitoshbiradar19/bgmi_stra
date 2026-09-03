@@ -291,7 +291,7 @@ export default function MapCanvas(props) {
     const tol = 24 / (v.ppm * v.zoom)
     for (let i = list.length - 1; i >= 0; i--) {
       const a = list[i]
-      if (a.type !== 'arrow' && a.type !== 'line' && a.type !== 'brush' && a.type !== 'ridge') continue
+      if (a.type !== 'arrow' && a.type !== 'line' && a.type !== 'brush' && a.type !== 'ridge' && a.type !== 'flight' && a.type !== 'flight1' && a.type !== 'flight2' && a.type !== 'smoke') continue
       const pts = a.points
       if (!pts || pts.length < 2) continue
       for (let j = 0; j < pts.length - 1; j++) {

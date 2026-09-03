@@ -24,6 +24,7 @@ import {
   Menu,
   PanelLeftOpen,
   PanelRightOpen,
+  Eraser,
 } from 'lucide-react'
 import MapCanvas from './components/MapCanvas'
 import Sidebar from './components/Sidebar'
@@ -37,6 +38,7 @@ import { getTeam } from './data/teams'
 import {
   getAutoSaveState,
   saveAutoSaveState,
+  clearAutoSaveState,
   getSavedStrategies,
   saveStrategy,
   deleteSavedStrategy,
@@ -423,6 +425,16 @@ export default function App() {
     },
     [pushHistory, showToast],
   )
+
+  const handleClearMap = useCallback(() => {
+    pushHistory()
+    setCircles([])
+    setAnnos([])
+    setSelectedId(null)
+    setMapsData((prev) => ({ ...prev, [mapId]: { circles: [], annos: [] } }))
+    clearAutoSaveState()
+    showToast('Redboard cleared')
+  }, [setCircles, setAnnos, setSelectedId, setMapsData, mapId, pushHistory, showToast])
 
   const updateCircleRadius = useCallback((id, r) => {
     setCircles((cs) => {
@@ -812,6 +824,16 @@ export default function App() {
             className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
           >
             <Redo2 size={14} />
+          </button>
+
+          {/* Clear Map */}
+          <button
+            onClick={handleClearMap}
+            title="Clear all zones, logos and annotations (Blank redboard)"
+            aria-label="Clear Map"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-red-500/25 bg-red-500/5 text-red-400 transition-all duration-200 hover:bg-red-500/15 hover:border-red-500/40 active:scale-95 min-h-[44px] min-w-[44px]"
+          >
+            <Eraser size={15} />
           </button>
 
           <div className="hidden sm:block h-5 w-px bg-slate-700/40 mx-1" />

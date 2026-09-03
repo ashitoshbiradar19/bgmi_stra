@@ -19,6 +19,14 @@ export function saveAutoSaveState(state) {
   }
 }
 
+export function clearAutoSaveState() {
+  try {
+    localStorage.removeItem(AUTOSAVE_KEY)
+  } catch {
+    /* ignore storage errors */
+  }
+}
+
 export function getSavedStrategies() {
   try {
     const raw = localStorage.getItem(SAVED_STRATEGIES_KEY)
