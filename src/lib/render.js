@@ -468,7 +468,8 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
   const team = getTeam(a.teamId)
   const color = team ? team.color : '#facc15'
   const color2 = team ? team.color2 : '#0f172a'
-  // size as a multiplier (1 = default). Clamp to a sane range.
+  // size as a multiplier (1 = default), scaled only by the export/S factor so
+  // the logo keeps the same absolute on-screen size in the exported image.
   const k = Math.max(0.4, Math.min(3, a.size || 1)) * S
 
   ctx.save()
@@ -975,10 +976,12 @@ export function renderScene(ctx, W, H, s) {
 
   const isFlight = (a) => a.type === 'flight' || a.type === 'flight1' || a.type === 'flight2'
 
-  for (const a of annos) if (isFlight(a)) drawAnno(ctx, a, X, Y, S, selectedId, Z)
+  const drawAnnoAt = (a) => drawAnno(ctx, a, X, Y, S, selectedId, Z)
+
+  for (const a of annos) if (isFlight(a)) drawAnnoAt(a)
   for (const c of circles) drawCircle(ctx, c, X, Y, selectedId, t, S)
-  for (const a of annos) if (!isFlight(a)) drawAnno(ctx, a, X, Y, S, selectedId, Z)
-  if (temp) drawAnno(ctx, temp, X, Y, S, null, Z)
+  for (const a of annos) if (!isFlight(a)) drawAnnoAt(a)
+  if (temp) drawAnnoAt(temp)
 
   ctx.restore()
   ctx.restore()

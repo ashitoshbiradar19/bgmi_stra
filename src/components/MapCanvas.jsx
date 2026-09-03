@@ -171,23 +171,24 @@ export default function MapCanvas(props) {
     }
   }, [])
 
-  // PNG High-Res Exporter (Dynamic Stroke Scaling Engine)
+  // PNG Exporter — matches the on-screen rendering exactly (WYSIWYG).
   useEffect(() => {
     exportRef.current = () => {
-      const px = clamp(Math.round(mapSize / 2), 2400, 4096)
       const p = propsRef.current
-      const viewportW = sizeRef.current.w || 800
-      const exportScaleFactor = px / viewportW
-      const bannerH = Math.round(110 * exportScaleFactor)
+      const vw = sizeRef.current.w || 800
+      const vh = sizeRef.current.h || 800
+      const bw = Math.round(110) // banner height at on-screen scale
+      const exportScaleFactor = 1
 
       const off = document.createElement('canvas')
-      off.width = px
-      off.height = px + bannerH
+      off.width = vw
+      off.height = vw + bw
       const ctx = off.getContext('2d')
-      const view = computeView(px, px, mapSize, 1)
+      const view = computeView(vw, vw, mapSize, 1)
 
-      // High-resolution scene render with dynamically scaled strokes
-      renderScene(ctx, px, px, {
+      // Screen-matching render so the logo and all elements keep the
+      // same pixel size as they appear on the website (exportScaleFactor = 1).
+      renderScene(ctx, vw, vw, {
         mapSize: p.mapSize,
         image: p.mapImage,
         gridOn: p.gridOn,
@@ -201,37 +202,37 @@ export default function MapCanvas(props) {
         showBlueZoneMask: p.showBlueZoneMask ?? true,
         view,
         t: performance.now(),
-        viewportWidth: viewportW,
+        viewportWidth: vw,
         exportScaleFactor,
       })
 
-      // Draw bottom banner below the map canvas so 100% of map & drawings remain intact
+      // Draw bottom banner below the map canvas
       ctx.fillStyle = 'rgba(7, 10, 15, 0.96)'
-      ctx.fillRect(0, px, px, bannerH)
+      ctx.fillRect(0, vw, vw, bw)
       ctx.strokeStyle = '#00e5ff'
-      ctx.lineWidth = 4 * exportScaleFactor
+      ctx.lineWidth = 4
       ctx.beginPath()
-      ctx.moveTo(0, px)
-      ctx.lineTo(px, px)
+      ctx.moveTo(0, vw)
+      ctx.lineTo(vw, vw)
       ctx.stroke()
 
       // Left: Map Title
-      ctx.font = `900 ${Math.round(34 * exportScaleFactor)}px Inter, system-ui, sans-serif`
+      ctx.font = `900 ${Math.round(34)}px Inter, system-ui, sans-serif`
       ctx.fillStyle = '#ffffff'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
-      ctx.fillText(`${p.mapName.toUpperCase()} MAP`, 36 * exportScaleFactor, px + bannerH / 2 - 4 * exportScaleFactor)
+      ctx.fillText(`${p.mapName.toUpperCase()} MAP`, 36, vw + bw / 2 - 4)
 
-      // Left Subtitle: Analysed by Ashitosh S. Biradar
-      ctx.font = `700 ${Math.round(20 * exportScaleFactor)}px Inter, system-ui, sans-serif`
+      // Left Subtitle
+      ctx.font = `700 ${Math.round(20)}px Inter, system-ui, sans-serif`
       ctx.fillStyle = '#FBBF24'
-      ctx.fillText(`Analysed by Ashitosh S. Biradar`, 36 * exportScaleFactor, px + bannerH / 2 + 28 * exportScaleFactor)
+      ctx.fillText(`Analysed by Ashitosh S. Biradar`, 36, vw + bw / 2 + 28)
 
       // Right: Tactical Details & Zone Count
       ctx.textAlign = 'right'
       ctx.fillStyle = 'rgba(148, 163, 184, 0.9)'
-      ctx.font = `700 ${Math.round(18 * exportScaleFactor)}px Inter, sans-serif`
-      ctx.fillText(`BGMI Tactical Board · ${p.circles.length} Zones Placed`, px - 36 * exportScaleFactor, px + bannerH / 2 + 10 * exportScaleFactor)
+      ctx.font = `700 ${Math.round(18)}px Inter, sans-serif`
+      ctx.fillText(`BGMI Tactical Board · ${p.circles.length} Zones Placed`, vw - 36, vw + bw / 2 + 10)
 
       off.toBlob((b) => {
         if (!b) return
@@ -389,14 +390,7 @@ export default function MapCanvas(props) {
       const c = hitCircle(wx, wy, cs)
       if (c) {
         propsRef.current.setSelectedId(c.id)
-        const ppmZ = viewRef.current.ppm * viewRef.current.zoom
-        const distFromEdge = Math.abs(Math.hypot(wx - c.x, wy - c.y) - c.r)
-        const edgeTol = 30 / ppmZ
-        if (distFromEdge <= edgeTol) {
-          interRef.current = { mode: 'drag-circle-resize', id: c.id, moved: false }
-        } else {
-          interRef.current = { mode: 'drag-circle', id: c.id, dx: wx - c.x, dy: wy - c.y, moved: false }
-        }
+        interRef.current = { mode: 'drag-circle', id: c.id, dx: wx - c.x, dy: wy - c.y, moved: false }
         requestRender()
         return
       }
@@ -522,14 +516,6 @@ export default function MapCanvas(props) {
       propsRef.current.setCircles((cs) => cs.map((c) => (c.id === it.id ? { ...c, x: nx, y: ny } : c)))
       it.moved = true
       requestRender()
-    } else if (it.mode === 'drag-circle-resize') {
-      const c = propsRef.current.circles.find((ci) => ci.id === it.id)
-      if (c) {
-        const newR = Math.max(10, Math.round(Math.hypot(wx - c.x, wy - c.y)))
-        propsRef.current.updateCircleRadius && propsRef.current.updateCircleRadius(c.id, newR)
-        it.moved = true
-        requestRender()
-      }
     } else if (it.mode === 'drag-text' || it.mode === 'drag-pin') {
       const ms = propsRef.current.mapSize
       propsRef.current.updateAnnoPos(it.id, 0, clamp(wx - (it.dx || 0), 0, ms), clamp(wy - (it.dy || 0), 0, ms))
@@ -596,7 +582,6 @@ export default function MapCanvas(props) {
         it.mode === 'drag-pin' ||
         it.mode === 'drag-line' ||
         it.mode === 'drag-circle' ||
-        it.mode === 'drag-circle-resize' ||
         it.mode === 'drag-compound')
     ) {
       propsRef.current.pushHistory()
@@ -1022,19 +1007,40 @@ export default function MapCanvas(props) {
                     <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Radius</span>
                     <span className="font-mono text-[10px] font-bold text-amber-400">{Math.round(selectedCircle.r)}m</span>
                   </div>
-                  <input
-                    type="number"
-                    min={10}
-                    max={4000}
-                    value={Math.round(selectedCircle.r)}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10)
-                      if (!isNaN(val) && val > 0) {
-                        updateCircleRadius && updateCircleRadius(selectedCircle.id, val)
-                      }
-                    }}
-                    className="w-full rounded-xl border border-slate-700/50 bg-slate-950/50 px-3 py-2.5 text-center text-lg font-bold font-mono text-amber-400 focus:border-amber-400/50 focus:outline-none transition-colors"
-                  />
+
+                  {/* Stepper: − value + */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateCircleRadius && updateCircleRadius(selectedCircle.id, Math.max(10, Math.round(selectedCircle.r) - 50))}
+                      title="Decrease radius (50m)"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/50 bg-slate-800/40 text-amber-400 transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/10 active:scale-95 min-h-[44px] min-w-[44px]"
+                    >
+                      <Minus size={16} />
+                    </button>
+
+                    <input
+                      type="number"
+                      min={10}
+                      max={4000}
+                      step={10}
+                      value={Math.round(selectedCircle.r)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10)
+                        if (!isNaN(val) && val > 0) {
+                          updateCircleRadius && updateCircleRadius(selectedCircle.id, val)
+                        }
+                      }}
+                      className="w-full min-w-0 rounded-xl border border-slate-700/50 bg-slate-950/50 px-2 py-2.5 text-center text-lg font-bold font-mono text-amber-400 focus:border-amber-400/50 focus:outline-none transition-colors"
+                    />
+
+                    <button
+                      onClick={() => updateCircleRadius && updateCircleRadius(selectedCircle.id, Math.min(4000, Math.round(selectedCircle.r) + 50))}
+                      title="Increase radius (50m)"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/50 bg-slate-800/40 text-amber-400 transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/10 active:scale-95 min-h-[44px] min-w-[44px]"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Radius Slider */}
