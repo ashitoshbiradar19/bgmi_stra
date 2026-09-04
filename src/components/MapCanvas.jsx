@@ -256,7 +256,7 @@ export default function MapCanvas(props) {
   const hitCircle = (wx, wy, cs) => {
     const v = viewRef.current
     const minR = 14 / (v.ppm * v.zoom)
-    const sorted = [...cs].sort((a, b) => b.r - a.r)
+    const sorted = [...cs].sort((a, b) => a.r - b.r)
     for (const c of sorted) {
       if (Math.hypot(wx - c.x, wy - c.y) <= Math.max(c.r, minR)) return c
     }
