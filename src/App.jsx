@@ -436,38 +436,6 @@ export default function App() {
     showToast('Redboard cleared')
   }, [setCircles, setAnnos, setSelectedId, setMapsData, mapId, pushHistory, showToast])
 
-  const updateCircleRadius = useCallback((id, r) => {
-    setCircles((cs) => {
-      const newR = Math.max(5, Math.round(r))
-      const target = cs.find((c) => c.id === id)
-      if (!target) return cs.map((c) => (c.id === id ? { ...c, r: newR } : c))
-
-      const sorted = [...cs].sort((a, b) => a.stage - b.stage)
-      let result = cs.map((c) => (c.id === id ? { ...c, r: newR } : c))
-
-      const getR = (stage) => result.find((c) => c.stage === stage)?.r
-
-      for (let s = 2; s <= 8; s++) {
-        const prevR = getR(s - 1)
-        const curR = getR(s)
-        if (prevR != null && curR != null && curR > prevR) {
-          result = result.map((c) => (c.stage === s ? { ...c, r: prevR } : c))
-        }
-      }
-
-      const targetUpdated = result.find((c) => c.id === id)
-      for (const c of sorted) {
-        if (c.stage > target.stage && c.id !== id) {
-          if (c.r > targetUpdated.r) {
-            result = result.map((rc) => (rc.id === c.id ? { ...rc, r: targetUpdated.r } : rc))
-          }
-        }
-      }
-
-      return result
-    })
-  }, [])
-
   const derivedCircles = useMemo(
     () =>
       circles.map((c) => {
@@ -956,7 +924,6 @@ export default function App() {
             setSelectedId={setSelectedId}
             addCircleAt={addCircleAt}
             removeCircle={removeCircle}
-            updateCircleRadius={updateCircleRadius}
             onLoadPreset={onLoadPreset}
             activeMapId={mapId}
             onSelectMap={selectMap}
@@ -1020,7 +987,6 @@ export default function App() {
                 setSelectedId={setSelectedId}
                 addCircleAt={addCircleAt}
                 removeCircle={removeCircle}
-                updateCircleRadius={updateCircleRadius}
                 onLoadPreset={onLoadPreset}
                 activeMapId={mapId}
                 onSelectMap={selectMap}
@@ -1055,7 +1021,6 @@ export default function App() {
             highlights={highlights}
             circles={derivedCircles}
             setCircles={setCircles}
-            updateCircleRadius={updateCircleRadius}
             annos={visibleAnnos}
             allAnnos={annos}
             addAnno={addAnno}

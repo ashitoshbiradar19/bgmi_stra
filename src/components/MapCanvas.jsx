@@ -41,7 +41,6 @@ export default function MapCanvas(props) {
     highlights,
     circles,
     setCircles,
-    updateCircleRadius,
     annos,
     allAnnos,
     addAnno,
@@ -999,62 +998,6 @@ export default function MapCanvas(props) {
                 <div className="flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
                   <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Diameter</span>
                   <span className="font-mono text-sm font-extrabold text-amber-400">⌀ {Math.round(selectedCircle.r * 2)}m</span>
-                </div>
-
-                {/* Radius Input */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Radius</span>
-                    <span className="font-mono text-[10px] font-bold text-amber-400">{Math.round(selectedCircle.r)}m</span>
-                  </div>
-
-                  {/* Stepper: − value + */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateCircleRadius && updateCircleRadius(selectedCircle.id, Math.max(10, Math.round(selectedCircle.r) - 50))}
-                      title="Decrease radius (50m)"
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/50 bg-slate-800/40 text-amber-400 transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/10 active:scale-95 min-h-[44px] min-w-[44px]"
-                    >
-                      <Minus size={16} />
-                    </button>
-
-                    <input
-                      type="number"
-                      min={10}
-                      max={4000}
-                      step={10}
-                      value={Math.round(selectedCircle.r)}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10)
-                        if (!isNaN(val) && val > 0) {
-                          updateCircleRadius && updateCircleRadius(selectedCircle.id, val)
-                        }
-                      }}
-                      className="w-full min-w-0 rounded-xl border border-slate-700/50 bg-slate-950/50 px-2 py-2.5 text-center text-lg font-bold font-mono text-amber-400 focus:border-amber-400/50 focus:outline-none transition-colors"
-                    />
-
-                    <button
-                      onClick={() => updateCircleRadius && updateCircleRadius(selectedCircle.id, Math.min(4000, Math.round(selectedCircle.r) + 50))}
-                      title="Increase radius (50m)"
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-700/50 bg-slate-800/40 text-amber-400 transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/10 active:scale-95 min-h-[44px] min-w-[44px]"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Radius Slider */}
-                <div className="space-y-1.5">
-                  <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Adjust</span>
-                  <input
-                    type="range"
-                    min={10}
-                    max={3000}
-                    step={5}
-                    value={Math.round(selectedCircle.r)}
-                    onChange={(e) => updateCircleRadius && updateCircleRadius(selectedCircle.id, parseInt(e.target.value, 10))}
-                    className="w-full cursor-pointer accent-amber-400"
-                  />
                 </div>
 
                 {/* Remove Zone */}

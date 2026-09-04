@@ -10,7 +10,6 @@ export default function ZonePanel({
   setSelectedId,
   addCircleAt,
   removeCircle,
-  updateCircleRadius,
 }) {
   const present = new Set(circles.map((c) => c.stage))
 
@@ -107,39 +106,7 @@ export default function ZonePanel({
                       )}
                     </div>
 
-                    {/* Radius Controller */}
-                    {isSelected && (
-                      <div className="mt-3 pt-2.5 border-t border-slate-700/30 space-y-2" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
-                          <span>Radius</span>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              min={10}
-                              max={4000}
-                              value={Math.round(c.r)}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10)
-                                if (!isNaN(val) && val > 0) {
-                                  updateCircleRadius && updateCircleRadius(c.id, val)
-                                }
-                              }}
-                              className="w-16 rounded-lg border border-slate-700/60 bg-slate-950/60 px-2 py-1 text-center text-[11px] font-bold font-mono text-amber-400 focus:border-amber-400/50 focus:outline-none transition-colors"
-                            />
-                            <span className="text-[10px] text-slate-500 font-mono">m</span>
-                          </div>
-                        </div>
-                        <input
-                          type="range"
-                          min={10}
-                          max={3000}
-                          step={5}
-                          value={Math.round(c.r)}
-                          onChange={(e) => updateCircleRadius && updateCircleRadius(c.id, parseInt(e.target.value, 10))}
-                          className="w-full cursor-pointer accent-amber-400"
-                        />
-                      </div>
-                    )}
+
                   </div>
                 )
               })}
