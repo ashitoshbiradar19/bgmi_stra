@@ -1,4 +1,4 @@
-import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2 } from 'lucide-react'
+import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2, MousePointerClick } from 'lucide-react'
 import { STAGE_RADII, STAGE_DIAMETERS, STAGE_COLORS } from '../lib/render'
 
 const fmtR = (r) => (r >= 100 ? `${Math.round(r)}m` : `${r % 1 ? r.toFixed(1) : r}m`)
@@ -68,7 +68,7 @@ export default function ZonePanel({
                     onClick={() => setSelectedId(c.id)}
                     className={`group flex flex-col rounded-xl border px-3 py-2.5 transition-all duration-200 cursor-pointer ${
                       isSelected
-                        ? 'border-cyan-500/40 bg-cyan-500/5 shadow-lg'
+                        ? 'border-cyan-500/50 bg-cyan-500/10 shadow-[0_0_16px_rgba(6,182,212,0.15)]'
                         : breach
                         ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
                         : warn
@@ -87,6 +87,27 @@ export default function ZonePanel({
                         <span className="ml-2 font-mono text-[10px] text-amber-400 font-bold">{diam}</span>
                       </div>
 
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedId(c.id)
+                        }}
+                        className={`shrink-0 flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-extrabold transition-all duration-150 ${
+                          isSelected
+                            ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
+                            : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300'
+                        }`}
+                        title="Select this circle to move it on the map"
+                      >
+                        <MousePointerClick size={10} /> SEL
+                      </button>
+
+                      {isSelected && (
+                        <span className="flex items-center gap-1 rounded-lg bg-cyan-500/15 px-2 py-0.5 text-[9px] font-extrabold text-cyan-300 border border-cyan-500/30">
+                          <CheckCircle2 size={9} /> ACTIVE
+                        </span>
+                      )}
+
                       {breach && (
                         <span className="flex items-center gap-1 rounded-lg bg-red-500/15 px-2 py-0.5 text-[9px] font-extrabold text-red-400 border border-red-500/20">
                           <ShieldAlert size={9} /> BOUNDARY
@@ -99,14 +120,19 @@ export default function ZonePanel({
                         </span>
                       )}
 
-                      {!breach && !warn && (
+                      {!breach && !warn && !isSelected && (
                         <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
                           <CheckCircle2 size={11} /> OK
                         </span>
                       )}
                     </div>
 
-
+                    {isSelected && (
+                      <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-cyan-500/25 bg-cyan-500/5 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-300">
+                        <MousePointerClick size={11} className="shrink-0" />
+                        Selected — click &amp; drag this circle on the map to move it
+                      </div>
+                    )}
                   </div>
                 )
               })}

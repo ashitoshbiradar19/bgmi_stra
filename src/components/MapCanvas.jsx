@@ -256,6 +256,16 @@ export default function MapCanvas(props) {
   const hitCircle = (wx, wy, cs) => {
     const v = viewRef.current
     const minR = 14 / (v.ppm * v.zoom)
+
+    // If a specific circle is already selected in the sidebar, prefer grabbing
+    // that exact one so nested circles can be moved reliably.
+    const selected = propsRef.current.selectedId
+      ? cs.find((c) => c.id === propsRef.current.selectedId)
+      : null
+    if (selected && Math.hypot(wx - selected.x, wy - selected.y) <= Math.max(selected.r, minR)) {
+      return selected
+    }
+
     const sorted = [...cs].sort((a, b) => a.r - b.r)
     for (const c of sorted) {
       if (Math.hypot(wx - c.x, wy - c.y) <= Math.max(c.r, minR)) return c
