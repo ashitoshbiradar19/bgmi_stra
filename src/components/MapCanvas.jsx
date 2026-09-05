@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { computeView, renderScene } from '../lib/render'
-import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose } from 'lucide-react'
+import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square } from 'lucide-react'
 import { TEAMS } from '../data/teams'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
@@ -449,10 +449,11 @@ export default function MapCanvas(props) {
           color: hitPt.color,
           fontSize: hitPt.fontSize || 20,
           label: hitPt.label || '',
+          plainText: !!hitPt.plainText,
         })
         return
       }
-      setTextModal({ x: wx, y: wy, color: pc, fontSize: 20, label: '' })
+      setTextModal({ x: wx, y: wy, color: pc, fontSize: 20, label: '', plainText: false })
       return
     }
 
@@ -1126,6 +1127,35 @@ export default function MapCanvas(props) {
                       />
                     </div>
 
+                    {/* Text Style Toggle (Boxed Callout vs Plain Text No Box) */}
+                    <div className="space-y-1.5">
+                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Text Style</span>
+                      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800/50 bg-slate-950/50 p-1">
+                        <button
+                          type="button"
+                          onClick={() => updateAnnoField && updateAnnoField(selectedAnno.id, { plainText: false })}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
+                            !selectedAnno.plainText
+                              ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-sm'
+                              : 'border border-transparent text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <Square size={13} /> Boxed
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateAnnoField && updateAnnoField(selectedAnno.id, { plainText: true })}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
+                            selectedAnno.plainText
+                              ? 'border border-cyan-400/40 bg-cyan-400/15 text-cyan-300 shadow-sm'
+                              : 'border border-transparent text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <Type size={13} /> Plain (No Box)
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Font Size</span>
@@ -1401,6 +1431,45 @@ export default function MapCanvas(props) {
               </div>
             </div>
 
+            {/* Text Style Selection (Boxed vs Plain Text No Box) */}
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Text Style</label>
+              <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800/50 bg-slate-950/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTextModal((m) => ({ ...m, plainText: false }))
+                    if (textModal.isEditing && textModal.id) {
+                      updateAnnoField && updateAnnoField(textModal.id, { plainText: false })
+                    }
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
+                    !textModal.plainText
+                      ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-sm'
+                      : 'border border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Square size={13} /> Boxed Callout
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTextModal((m) => ({ ...m, plainText: true }))
+                    if (textModal.isEditing && textModal.id) {
+                      updateAnnoField && updateAnnoField(textModal.id, { plainText: true })
+                    }
+                  }}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
+                    textModal.plainText
+                      ? 'border border-cyan-400/40 bg-cyan-400/15 text-cyan-300 shadow-sm'
+                      : 'border border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Type size={13} /> Plain Text (No Box)
+                </button>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-1">
               <button
                 onClick={() => setTextModal(null)}
@@ -1415,6 +1484,7 @@ export default function MapCanvas(props) {
                       updateAnnoLabel && updateAnnoLabel(textModal.id, textModal.label.trim())
                       if (textModal.fontSize) updateAnnoFontSize && updateAnnoFontSize(textModal.id, textModal.fontSize)
                       if (textModal.color) handleColorSelect && handleColorSelect(textModal.color)
+                      if (textModal.plainText !== undefined) updateAnnoField && updateAnnoField(textModal.id, { plainText: !!textModal.plainText })
                     } else {
                       const id = uid()
                       addAnno({
@@ -1423,6 +1493,7 @@ export default function MapCanvas(props) {
                         color: textModal.color || penColor,
                         fontSize: textModal.fontSize || 20,
                         label: textModal.label.trim(),
+                        plainText: !!textModal.plainText,
                         points: [[textModal.x, textModal.y]],
                       })
                       setSelectedId(id)

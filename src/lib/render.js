@@ -116,6 +116,22 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.rect(x, y, w, h)
 }
 
+function plainLabel(ctx, text, x, y, color, fontSize = 11, S = 1) {
+  const fontPx = Math.max(11, Math.round(fontSize * S))
+  ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  // Crisp dark stroke outline for legibility over any map background without a box
+  ctx.strokeStyle = 'rgba(7, 10, 15, 0.95)'
+  ctx.lineWidth = Math.max(3.5, 3.5 * S)
+  ctx.lineJoin = 'round'
+  ctx.strokeText(text, x, y + 0.5 * S)
+
+  ctx.fillStyle = color
+  ctx.fillText(text, x, y + 0.5 * S)
+}
+
 function label(ctx, text, x, y, color, bg = 'rgba(7,10,15,0.92)', fontSize = 11, S = 1) {
   const fontPx = Math.max(11, Math.round(fontSize * S))
   ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`
@@ -672,7 +688,11 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     label(ctx, a.label || 'COMPOUND DEFENSE', x + w / 2, y + h / 2, a.color, 'rgba(7,10,15,0.92)', 10, S)
   } else if (a.type === 'text' && P.length > 0) {
     const fs = a.fontSize || 20
-    label(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, 'rgba(7,10,15,0.92)', fs, S)
+    if (a.plainText) {
+      plainLabel(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, fs, S)
+    } else {
+      label(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, 'rgba(7,10,15,0.92)', fs, S)
+    }
   } else if (a.type === 'team' && P.length > 0) {
     drawTeam(ctx, a, P[0][0], P[0][1], S, Z)
   } else if (a.type === 'pin') {
