@@ -176,18 +176,30 @@ export default function MapCanvas(props) {
       const p = propsRef.current
       const vw = sizeRef.current.w || 800
       const vh = sizeRef.current.h || 800
-      const bw = Math.round(110) // banner height at on-screen scale
-      const exportScaleFactor = 1
+
+      // High-resolution output canvas (target 2048px minimum width for ultra-crisp export)
+      const dpr = Math.max(2, window.devicePixelRatio || 2)
+      const exportW = Math.max(2048, Math.round(vw * dpr))
+      const scale = exportW / vw
+      const exportH = Math.round(vh * scale)
+      const bw = Math.round(110 * scale) // banner height at export scale
 
       const off = document.createElement('canvas')
-      off.width = vw
-      off.height = vw + bw
+      off.width = exportW
+      off.height = exportH + bw
       const ctx = off.getContext('2d')
-      const view = computeView(vw, vw, mapSize, 1)
 
-      // Screen-matching render so the logo and all elements keep the
-      // same pixel size as they appear on the website (exportScaleFactor = 1).
-      renderScene(ctx, vw, vw, {
+      // Use active on-screen view (pan & zoom) scaled by export scale factor so that
+      // map positioning, zoom framing, and element sizes match what the user sees on screen 1:1.
+      const screenView = viewRef.current || computeView(vw, vh, mapSize, 1)
+      const exportView = {
+        ppm: screenView.ppm * scale,
+        zoom: screenView.zoom || 1,
+        ox: screenView.ox * scale,
+        oy: screenView.oy * scale,
+      }
+
+      renderScene(ctx, exportW, exportH, {
         mapSize: p.mapSize,
         image: p.mapImage,
         gridOn: p.gridOn,
@@ -199,39 +211,39 @@ export default function MapCanvas(props) {
         showHeatmap: p.showHeatmap ?? true,
         showContours: p.showContours ?? false,
         showBlueZoneMask: p.showBlueZoneMask ?? true,
-        view,
+        view: exportView,
         t: performance.now(),
         viewportWidth: vw,
-        exportScaleFactor,
+        exportScaleFactor: scale,
       })
 
       // Draw bottom banner below the map canvas
       ctx.fillStyle = 'rgba(7, 10, 15, 0.96)'
-      ctx.fillRect(0, vw, vw, bw)
+      ctx.fillRect(0, exportH, exportW, bw)
       ctx.strokeStyle = '#00e5ff'
-      ctx.lineWidth = 4
+      ctx.lineWidth = Math.round(4 * scale)
       ctx.beginPath()
-      ctx.moveTo(0, vw)
-      ctx.lineTo(vw, vw)
+      ctx.moveTo(0, exportH)
+      ctx.lineTo(exportW, exportH)
       ctx.stroke()
 
       // Left: Map Title
-      ctx.font = `900 ${Math.round(34)}px Inter, system-ui, sans-serif`
+      ctx.font = `900 ${Math.round(34 * scale)}px Inter, system-ui, sans-serif`
       ctx.fillStyle = '#ffffff'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
-      ctx.fillText(`${p.mapName.toUpperCase()} MAP`, 36, vw + bw / 2 - 4)
+      ctx.fillText(`${p.mapName.toUpperCase()} MAP`, Math.round(36 * scale), exportH + bw / 2 - Math.round(4 * scale))
 
       // Left Subtitle
-      ctx.font = `700 ${Math.round(20)}px Inter, system-ui, sans-serif`
+      ctx.font = `700 ${Math.round(20 * scale)}px Inter, system-ui, sans-serif`
       ctx.fillStyle = '#FBBF24'
-      ctx.fillText(`Analysed by Ashitosh S. Biradar`, 36, vw + bw / 2 + 28)
+      ctx.fillText(`Analysed by Ashitosh S. Biradar`, Math.round(36 * scale), exportH + bw / 2 + Math.round(28 * scale))
 
       // Right: Tactical Details & Zone Count
       ctx.textAlign = 'right'
       ctx.fillStyle = 'rgba(148, 163, 184, 0.9)'
-      ctx.font = `700 ${Math.round(18)}px Inter, sans-serif`
-      ctx.fillText(`BGMI Tactical Board · ${p.circles.length} Zones Placed`, vw - 36, vw + bw / 2 + 10)
+      ctx.font = `700 ${Math.round(18 * scale)}px Inter, sans-serif`
+      ctx.fillText(`BGMI Tactical Board · ${p.circles.length} Zones Placed`, exportW - Math.round(36 * scale), exportH + bw / 2 + Math.round(10 * scale))
 
       off.toBlob((b) => {
         if (!b) return
