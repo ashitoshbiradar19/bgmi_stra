@@ -1,5 +1,6 @@
-import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2, MousePointerClick } from 'lucide-react'
+import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2, MousePointerClick, Palette, RotateCcw } from 'lucide-react'
 import { STAGE_RADII, STAGE_DIAMETERS, STAGE_COLORS } from '../lib/render'
+import { COLOR_PRESETS } from '../data/colors'
 
 const fmtR = (r) => (r >= 100 ? `${Math.round(r)}m` : `${r % 1 ? r.toFixed(1) : r}m`)
 
@@ -10,8 +11,11 @@ export default function ZonePanel({
   setSelectedId,
   addCircleAt,
   removeCircle,
+  updateCircleColor,
+  handleColorSelect,
 }) {
   const present = new Set(circles.map((c) => c.stage))
+  const selectedCircle = derivedCircles.find((c) => c.id === selectedId)
 
   return (
     <div className="space-y-5">
@@ -29,7 +33,7 @@ export default function ZonePanel({
           </span>
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-          Clean terrain view with solid line outlines. Stage 1 (White) → Stage 8 (Red).
+          Clean terrain view with customizable zone outlines. Stage 1 (White) → Stage 8 (Red).
         </p>
       </div>
 
@@ -62,6 +66,7 @@ export default function ZonePanel({
                 const breach = c.violating
                 const warn = !breach && c.waterWarn
                 const diam = `⌀${Math.round(c.r * 2)}m`
+                const circleColor = c.color || STAGE_COLORS[c.stage - 1] || '#FFFFFF'
                 return (
                   <div
                     key={c.id}
@@ -77,10 +82,12 @@ export default function ZonePanel({
                     }`}
                   >
                     <div className="flex items-center gap-2.5 w-full">
-                      <CircleDot
-                        size={14}
-                        style={{ color: breach ? '#ef4444' : warn ? '#f59e0b' : STAGE_COLORS[c.stage - 1] }}
-                        className="shrink-0"
+                      <span
+                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/20 transition-transform group-hover:scale-110"
+                        style={{
+                          backgroundColor: breach ? '#ef4444' : warn ? '#f59e0b' : circleColor,
+                          boxShadow: `0 0 8px ${circleColor}88`,
+                        }}
                       />
                       <div className="min-w-0 flex-1">
                         <span className="text-[11px] font-bold text-slate-100">Stage {c.stage}</span>
@@ -97,7 +104,7 @@ export default function ZonePanel({
                             ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_10px_rgba(6,182,212,0.2)]'
                             : 'border-slate-700/60 bg-slate-800/40 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-300'
                         }`}
-                        title="Select this circle to move it on the map"
+                        title="Select this circle to edit or move it"
                       >
                         <MousePointerClick size={10} /> SEL
                       </button>
@@ -128,9 +135,60 @@ export default function ZonePanel({
                     </div>
 
                     {isSelected && (
-                      <div className="mt-2 flex items-center gap-1.5 rounded-lg border border-cyan-500/25 bg-cyan-500/5 px-2.5 py-1.5 text-[10px] font-semibold text-cyan-300">
-                        <MousePointerClick size={11} className="shrink-0" />
-                        Selected — click &amp; drag this circle on the map to move it
+                      <div className="mt-2.5 space-y-2 rounded-xl border border-cyan-500/20 bg-slate-950/60 p-2.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-cyan-300">
+                          <span className="flex items-center gap-1.5">
+                            <Palette size={11} /> Circle Color
+                          </span>
+                          <span className="font-mono text-[9px] uppercase text-amber-400">
+                            {c.color || 'Default Stage'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-6 gap-1.5">
+                          {COLOR_PRESETS.map((cp) => (
+                            <button
+                              key={cp.hex}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (updateCircleColor) updateCircleColor(c.id, cp.hex)
+                                else if (handleColorSelect) handleColorSelect(cp.hex)
+                              }}
+                              title={cp.name}
+                              className={`h-5 w-5 rounded-full border transition-all duration-150 ${
+                                (c.color || STAGE_COLORS[c.stage - 1])?.toLowerCase() === cp.hex.toLowerCase()
+                                  ? 'scale-125 border-white shadow-[0_0_8px_rgba(255,255,255,0.6)] z-10'
+                                  : 'border-transparent hover:scale-110 opacity-75 hover:opacity-100'
+                              }`}
+                              style={{ backgroundColor: cp.hex }}
+                            />
+                          ))}
+                          <label
+                            title="Custom Circle Color"
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-slate-600 bg-[conic-gradient(at_center,_var(--tw-gradient-stops))] from-red-500 via-green-500 to-blue-500 hover:scale-110"
+                          >
+                            <input
+                              type="color"
+                              value={c.color || STAGE_COLORS[c.stage - 1] || '#FFFFFF'}
+                              onChange={(e) => {
+                                if (updateCircleColor) updateCircleColor(c.id, e.target.value)
+                                else if (handleColorSelect) handleColorSelect(e.target.value)
+                              }}
+                              className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+                            />
+                          </label>
+                        </div>
+                        {c.color && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (updateCircleColor) updateCircleColor(c.id, undefined)
+                            }}
+                            className="flex items-center gap-1 text-[9px] font-bold text-slate-400 hover:text-amber-400 transition-colors"
+                          >
+                            <RotateCcw size={10} /> Reset to Stage Default Color
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -140,7 +198,7 @@ export default function ZonePanel({
 
           {selectedId && (
             <button
-              onClick={() => removeCircle(selectedId)}
+              onClick={() => removeCircle && removeCircle(selectedId)}
               className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-red-500/25 bg-red-500/5 py-2 text-[11px] font-bold text-red-400 transition-all duration-200 hover:bg-red-500/10 active:scale-[0.98]"
             >
               <Trash2 size={12} /> Remove Zone

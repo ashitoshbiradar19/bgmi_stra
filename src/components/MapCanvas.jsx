@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { computeView, renderScene } from '../lib/render'
-import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square } from 'lucide-react'
+import { computeView, renderScene, STAGE_COLORS } from '../lib/render'
+import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square, CircleDot, Palette } from 'lucide-react'
 import { TEAMS } from '../data/teams'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
@@ -470,7 +470,7 @@ export default function MapCanvas(props) {
       return
     }
 
-    if (tool === 'line' || tool === 'arrow' || tool === 'ridge') {
+    if (tool === 'line' || tool === 'arrow' || tool === 'ridge' || tool === 'circle') {
       interRef.current = { mode: 'seg', kind: tool, start: [wx, wy], end: [wx, wy] }
       requestRender()
       return
@@ -852,6 +852,7 @@ export default function MapCanvas(props) {
             <div className="grid grid-cols-4 gap-1.5">
               {[
                 { id: 'select', icon: MousePointer2, label: 'Select (V)' },
+                { id: 'circle', icon: CircleDot, label: 'Circle (O)' },
                 { id: 'pin', icon: MapPin, label: 'Pin (P)' },
                 { id: 'brush', icon: PenLine, label: 'Brush (B)' },
                 { id: 'line', icon: Minus, label: 'Line (L)' },
@@ -1019,8 +1020,60 @@ export default function MapCanvas(props) {
               <>
                 {/* Diameter badge */}
                 <div className="flex items-center justify-between rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
-                  <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Diameter</span>
+                  <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Stage {selectedCircle.stage} Zone</span>
                   <span className="font-mono text-sm font-extrabold text-amber-400">⌀ {Math.round(selectedCircle.r * 2)}m</span>
+                </div>
+
+                {/* Circle Color Selection */}
+                <div className="space-y-2 rounded-xl border border-slate-800/60 bg-slate-950/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500 flex items-center gap-1.5">
+                      <Palette size={12} className="text-amber-400" /> Circle Outline Color
+                    </span>
+                    <span className="font-mono text-[9px] font-bold text-amber-400 uppercase">
+                      {selectedCircle.color || 'Stage Default'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {COLOR_PRESETS.map((c) => (
+                      <button
+                        key={c.hex}
+                        onClick={() => {
+                          if (props.updateCircleColor) props.updateCircleColor(selectedCircle.id, c.hex)
+                          else if (handleColorSelect) handleColorSelect(c.hex)
+                        }}
+                        title={c.name}
+                        className={`h-5 w-5 rounded-full border transition-all duration-150 ${
+                          (selectedCircle.color || STAGE_COLORS[selectedCircle.stage - 1])?.toLowerCase() === c.hex.toLowerCase()
+                            ? 'scale-[1.2] border-white/90 shadow-[0_0_10px_rgba(255,255,255,0.4)] z-10'
+                            : 'border-transparent hover:scale-110 opacity-70 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                      />
+                    ))}
+                    <label
+                      title="Custom Circle Color"
+                      className="relative flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border border-slate-600 bg-[conic-gradient(at_center,_var(--tw-gradient-stops))] from-red-500 via-green-500 to-blue-500 hover:scale-110"
+                    >
+                      <input
+                        type="color"
+                        value={selectedCircle.color || STAGE_COLORS[selectedCircle.stage - 1] || '#FFFFFF'}
+                        onChange={(e) => {
+                          if (props.updateCircleColor) props.updateCircleColor(selectedCircle.id, e.target.value)
+                          else if (handleColorSelect) handleColorSelect(e.target.value)
+                        }}
+                        className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                  {selectedCircle.color && (
+                    <button
+                      onClick={() => props.updateCircleColor && props.updateCircleColor(selectedCircle.id, undefined)}
+                      className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 hover:text-amber-400 transition-colors pt-1"
+                    >
+                      <RotateCcw size={11} /> Reset to Default Stage Color
+                    </button>
+                  )}
                 </div>
 
                 {/* Remove Zone */}

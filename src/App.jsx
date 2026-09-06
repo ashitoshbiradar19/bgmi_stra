@@ -311,10 +311,25 @@ export default function App() {
 
   const addAnno = useCallback((a) => setAnnos((as) => [...as, a]), [])
 
+  const updateCircleColor = useCallback((id, color) => {
+    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
+    setRedoStack([])
+    setCircles((cs) => cs.map((c) => (c.id === id ? { ...c, color } : c)))
+  }, [])
+
   const handleColorSelect = useCallback(
     (color) => {
       setPenColor(color)
       if (selectedId) {
+        setCircles((cs) => {
+          const found = cs.find((c) => c.id === selectedId)
+          if (found) {
+            setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
+            setRedoStack([])
+            return cs.map((c) => (c.id === selectedId ? { ...c, color } : c))
+          }
+          return cs
+        })
         setAnnos((as) => {
           const found = as.find((a) => a.id === selectedId)
           if (found && found.type !== 'team') {
@@ -924,6 +939,7 @@ export default function App() {
             setSelectedId={setSelectedId}
             addCircleAt={addCircleAt}
             removeCircle={removeCircle}
+            updateCircleColor={updateCircleColor}
             onLoadPreset={onLoadPreset}
             activeMapId={mapId}
             onSelectMap={selectMap}
@@ -987,6 +1003,7 @@ export default function App() {
                 setSelectedId={setSelectedId}
                 addCircleAt={addCircleAt}
                 removeCircle={removeCircle}
+            updateCircleColor={updateCircleColor}
                 onLoadPreset={onLoadPreset}
                 activeMapId={mapId}
                 onSelectMap={selectMap}
@@ -1039,6 +1056,8 @@ export default function App() {
             updateAnnoWidth={updateAnnoWidth}
             updateAnnoLabel={updateAnnoLabel}
             removeAnno={removeAnno}
+            removeCircle={removeCircle}
+            updateCircleColor={updateCircleColor}
             exportRef={exportRef}
             addCircleAt={addCircleAt}
             isMobile={isMobile}

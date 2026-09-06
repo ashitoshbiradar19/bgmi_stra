@@ -21,6 +21,7 @@ import {
   Compass,
   Trash2,
   X,
+  CircleDot,
 } from 'lucide-react'
 import TrainingPanel from './TrainingPanel'
 import ZonePanel from './ZonePanel'
@@ -32,6 +33,7 @@ import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS } from '../data/color
 
 const TOOLS = [
   { id: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
+  { id: 'circle', icon: CircleDot, label: 'Circle', key: 'O' },
   { id: 'pin', icon: MapPin, label: 'Pin', key: 'P' },
   { id: 'flight1', icon: Plane, label: 'Flight Path', key: 'F' },
   { id: 'flight2', icon: Plane, label: 'Flight Path 2', key: 'F2' },
@@ -303,7 +305,7 @@ export default function Sidebar(props) {
                   </>
                 )}
 
-                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush') && (
+                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'circle') && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <SectionTitle>Thickness</SectionTitle>

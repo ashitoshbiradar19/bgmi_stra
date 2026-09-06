@@ -686,6 +686,24 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     ctx.fill()
     ctx.stroke()
     label(ctx, a.label || 'COMPOUND DEFENSE', x + w / 2, y + h / 2, a.color, 'rgba(7,10,15,0.92)', 10, S)
+  } else if (a.type === 'circle' && P.length > 0) {
+    const p0 = a.points[0]
+    const p1 = a.points[1] || a.points[0]
+    const rWorld = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || (a.r || 50)
+    const r = Math.max(rWorld * (X.mapScale || 1), 3)
+    const cx = P[0][0]
+    const cy = P[0][1]
+
+    ctx.setLineDash([])
+    ctx.lineWidth = Math.max(2.0, (a.width || 3.5) * S)
+    ctx.strokeStyle = a.color
+    ctx.fillStyle = hexA(a.color, 0.12)
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+
+    label(ctx, a.label || `RADIUS ${Math.round(rWorld)}m`, cx, cy - r - 8 * S, a.color, 'rgba(7,10,15,0.92)', 10, S)
   } else if (a.type === 'text' && P.length > 0) {
     const fs = a.fontSize || 20
     if (a.plainText) {
@@ -704,7 +722,27 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
   // Draw Glowing Cyan Selection Aura / Bounding Box when annotation is selected
   if (isSelected) {
     ctx.save()
-    if (a.type === 'text' && P.length > 0) {
+    if (a.type === 'circle' && P.length > 0) {
+      const p0 = a.points[0]
+      const p1 = a.points[1] || a.points[0]
+      const rWorld = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || (a.r || 50)
+      const r = Math.max(rWorld * (X.mapScale || 1), 3)
+      const cx = P[0][0]
+      const cy = P[0][1]
+      ctx.strokeStyle = '#00E5FF'
+      ctx.lineWidth = Math.max(2.5, 2.5 * S)
+      ctx.setLineDash([6 * S, 4 * S])
+      ctx.shadowColor = '#00E5FF'
+      ctx.shadowBlur = 12 * S
+      ctx.beginPath()
+      ctx.arc(cx, cy, r + 4 * S, 0, Math.PI * 2)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle = '#00E5FF'
+      ctx.beginPath()
+      ctx.arc(cx + r, cy, 6 * S, 0, Math.PI * 2)
+      ctx.fill()
+    } else if (a.type === 'text' && P.length > 0) {
       const fs = a.fontSize || 20
       const fontPx = Math.max(11, Math.round(fs * S))
       ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`
@@ -805,7 +843,7 @@ function drawCircle(ctx, c, X, Y, selectedId, t, S = 1) {
     ? '#EF4444'
     : warn
     ? '#F97316'
-    : SOLID_STAGE_COLORS[(c.stage - 1) % SOLID_STAGE_COLORS.length] || '#FFFFFF'
+    : c.color || SOLID_STAGE_COLORS[(c.stage - 1) % SOLID_STAGE_COLORS.length] || '#FFFFFF'
 
   // Proportional stroke scaling matching canvas resolution (exact 1:1 relative proportions)
   const baseWidth = contain ? 3.5 : 2.5
