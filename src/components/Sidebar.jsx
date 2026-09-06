@@ -305,6 +305,58 @@ export default function Sidebar(props) {
                   </>
                 )}
 
+                {selectedAnno.type === 'circle' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <SectionTitle>Circle Radius / Size</SectionTitle>
+                      <span className="font-mono text-[10px] font-bold text-amber-400">
+                        {Math.round(
+                          selectedAnno.r ||
+                            (selectedAnno.points?.[1]
+                              ? Math.hypot(
+                                  selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                  selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                                )
+                              : 50),
+                        )}m
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={20}
+                      max={2500}
+                      step={10}
+                      value={Math.round(
+                        selectedAnno.r ||
+                          (selectedAnno.points?.[1]
+                            ? Math.hypot(
+                                selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                              )
+                            : 50),
+                      )}
+                      onChange={(e) =>
+                        props.updateAnnoRadius &&
+                        props.updateAnnoRadius(selectedAnno.id, parseInt(e.target.value, 10))
+                      }
+                      className="w-full cursor-pointer accent-amber-400"
+                    />
+                    <div className="grid grid-cols-5 gap-1">
+                      {[50, 150, 300, 500, 1000].map((sz) => (
+                        <button
+                          key={sz}
+                          onClick={() =>
+                            props.updateAnnoRadius && props.updateAnnoRadius(selectedAnno.id, sz)
+                          }
+                          className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
+                        >
+                          {sz}m
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'circle') && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">

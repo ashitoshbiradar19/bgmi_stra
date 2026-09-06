@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { computeView, renderScene, STAGE_COLORS } from '../lib/render'
+import { computeView, renderScene, STAGE_COLORS, STAGE_RADII } from '../lib/render'
 import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square, CircleDot, Palette } from 'lucide-react'
 import { TEAMS } from '../data/teams'
 
@@ -1074,6 +1074,44 @@ export default function MapCanvas(props) {
                       <RotateCcw size={11} /> Reset to Default Stage Color
                     </button>
                   )}
+                </div>
+
+                {/* Circle Size / Radius Selection */}
+                <div className="space-y-2 rounded-xl border border-slate-800/60 bg-slate-950/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                      Circle Radius / Size
+                    </span>
+                    <span className="font-mono text-[10px] font-bold text-amber-400">
+                      r = {Math.round(selectedCircle.r)}m
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={20}
+                    max={3000}
+                    step={10}
+                    value={Math.round(selectedCircle.r)}
+                    onChange={(e) => {
+                      if (props.updateCircleRadius) props.updateCircleRadius(selectedCircle.id, parseInt(e.target.value, 10))
+                    }}
+                    className="w-full cursor-pointer accent-amber-400"
+                  />
+                  <div className="grid grid-cols-4 gap-1">
+                    {[100, 300, 700, STAGE_RADII[selectedCircle.stage - 1] || 1000].map((sz) => (
+                      <button
+                        key={sz}
+                        onClick={() => props.updateCircleRadius && props.updateCircleRadius(selectedCircle.id, sz)}
+                        className={`rounded-md border py-1 text-[9px] font-extrabold transition-all ${
+                          Math.abs(selectedCircle.r - sz) < 5
+                            ? 'border-amber-400 bg-amber-400/20 text-amber-300'
+                            : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                        }`}
+                      >
+                        {sz === (STAGE_RADII[selectedCircle.stage - 1] || 1000) ? 'Default' : `${sz}m`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Remove Zone */}

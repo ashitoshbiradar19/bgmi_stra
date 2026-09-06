@@ -1,4 +1,4 @@
-import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2, MousePointerClick, Palette, RotateCcw } from 'lucide-react'
+import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2, MousePointerClick, Palette, RotateCcw, Maximize2 } from 'lucide-react'
 import { STAGE_RADII, STAGE_DIAMETERS, STAGE_COLORS } from '../lib/render'
 import { COLOR_PRESETS } from '../data/colors'
 
@@ -12,6 +12,7 @@ export default function ZonePanel({
   addCircleAt,
   removeCircle,
   updateCircleColor,
+  updateCircleRadius,
   handleColorSelect,
 }) {
   const present = new Set(circles.map((c) => c.stage))
@@ -189,6 +190,47 @@ export default function ZonePanel({
                             <RotateCcw size={10} /> Reset to Stage Default Color
                           </button>
                         )}
+
+                        {/* Circle Radius / Size Control */}
+                        <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-cyan-300">
+                            <span className="flex items-center gap-1.5">
+                              <Maximize2 size={11} /> Circle Size / Radius
+                            </span>
+                            <span className="font-mono text-[10px] font-bold text-amber-400">
+                              r = {Math.round(c.r)}m (⌀{Math.round(c.r * 2)}m)
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={20}
+                            max={3000}
+                            step={10}
+                            value={Math.round(c.r)}
+                            onChange={(e) => {
+                              if (updateCircleRadius) updateCircleRadius(c.id, parseInt(e.target.value, 10))
+                            }}
+                            className="w-full cursor-pointer accent-cyan-400"
+                          />
+                          <div className="grid grid-cols-4 gap-1">
+                            {[100, 300, 700, STAGE_RADII[c.stage - 1]].map((sz) => (
+                              <button
+                                key={sz}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (updateCircleRadius) updateCircleRadius(c.id, sz)
+                                }}
+                                className={`rounded-md border py-1 text-[9px] font-extrabold transition-all ${
+                                  Math.abs(c.r - sz) < 5
+                                    ? 'border-cyan-400 bg-cyan-500/20 text-cyan-300'
+                                    : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                                }`}
+                              >
+                                {sz === STAGE_RADII[c.stage - 1] ? 'Default' : `${sz}m`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>

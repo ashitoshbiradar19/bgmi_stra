@@ -317,6 +317,26 @@ export default function App() {
     setCircles((cs) => cs.map((c) => (c.id === id ? { ...c, color } : c)))
   }, [])
 
+  const updateCircleRadius = useCallback((id, r) => {
+    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
+    setRedoStack([])
+    setCircles((cs) => cs.map((c) => (c.id === id ? { ...c, r: Math.max(10, r) } : c)))
+  }, [])
+
+  const updateAnnoRadius = useCallback((id, r) => {
+    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
+    setRedoStack([])
+    setAnnos((as) =>
+      as.map((a) => {
+        if (a.id === id) {
+          const p0 = a.points?.[0] || [4000, 4000]
+          return { ...a, r, points: [p0, [p0[0] + r, p0[1]]] }
+        }
+        return a
+      }),
+    )
+  }, [])
+
   const handleColorSelect = useCallback(
     (color) => {
       setPenColor(color)
@@ -940,6 +960,8 @@ export default function App() {
             addCircleAt={addCircleAt}
             removeCircle={removeCircle}
             updateCircleColor={updateCircleColor}
+            updateCircleRadius={updateCircleRadius}
+            updateAnnoRadius={updateAnnoRadius}
             onLoadPreset={onLoadPreset}
             activeMapId={mapId}
             onSelectMap={selectMap}
@@ -1004,6 +1026,8 @@ export default function App() {
                 addCircleAt={addCircleAt}
                 removeCircle={removeCircle}
             updateCircleColor={updateCircleColor}
+            updateCircleRadius={updateCircleRadius}
+            updateAnnoRadius={updateAnnoRadius}
                 onLoadPreset={onLoadPreset}
                 activeMapId={mapId}
                 onSelectMap={selectMap}
@@ -1058,6 +1082,8 @@ export default function App() {
             removeAnno={removeAnno}
             removeCircle={removeCircle}
             updateCircleColor={updateCircleColor}
+            updateCircleRadius={updateCircleRadius}
+            updateAnnoRadius={updateAnnoRadius}
             exportRef={exportRef}
             addCircleAt={addCircleAt}
             isMobile={isMobile}
