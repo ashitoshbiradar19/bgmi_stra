@@ -170,35 +170,48 @@ export default function MapCanvas(props) {
     }
   }, [])
 
-  // PNG Exporter — matches the on-screen rendering exactly (WYSIWYG).
+  // PNG Exporter — matches the reference format (1:1 Square Map framing + styled bottom banner).
   useEffect(() => {
-    exportRef.current = () => {
+    exportRef.current = (opts = {}) => {
       const p = propsRef.current
       const vw = sizeRef.current.w || 800
       const vh = sizeRef.current.h || 800
 
-      // High-resolution output canvas (target 2048px minimum width for ultra-crisp export)
-      const dpr = Math.max(2, window.devicePixelRatio || 2)
-      const exportW = Math.max(2048, Math.round(vw * dpr))
-      const scale = exportW / vw
-      const exportH = Math.round(vh * scale)
-      const bw = Math.round(110 * scale) // banner height at export scale
+      const mode = opts.mode || 'square' // default 1:1 square map framing matching reference format
+      const analystName = opts.analystName !== undefined ? opts.analystName : 'Ashitosh S. Biradar'
+      const descText = opts.description !== undefined ? opts.description : `BGMI Tactical Board · ${p.circles.length} Zones Placed`
+
+      let exportW, exportH, exportView, scale, bw
+
+      if (mode === 'square') {
+        // High-resolution 1:1 Square Map format (2048x2048 canvas for map)
+        exportW = 2048
+        exportH = 2048
+        scale = 2.56 // 2048 / 800
+        exportView = computeView(exportW, exportH, p.mapSize, 1)
+        bw = Math.round(140 * (exportW / 2048)) // 140px footer height
+      } else {
+        // Screen view framing format
+        const dpr = Math.max(2, window.devicePixelRatio || 2)
+        exportW = Math.max(2048, Math.round(vw * dpr))
+        scale = exportW / vw
+        exportH = Math.round(vh * scale)
+        const screenView = viewRef.current || computeView(vw, vh, p.mapSize, 1)
+        exportView = {
+          ppm: screenView.ppm * scale,
+          zoom: screenView.zoom || 1,
+          ox: screenView.ox * scale,
+          oy: screenView.oy * scale,
+        }
+        bw = Math.round(140 * scale)
+      }
 
       const off = document.createElement('canvas')
       off.width = exportW
       off.height = exportH + bw
       const ctx = off.getContext('2d')
 
-      // Use active on-screen view (pan & zoom) scaled by export scale factor so that
-      // map positioning, zoom framing, and element sizes match what the user sees on screen 1:1.
-      const screenView = viewRef.current || computeView(vw, vh, mapSize, 1)
-      const exportView = {
-        ppm: screenView.ppm * scale,
-        zoom: screenView.zoom || 1,
-        ox: screenView.ox * scale,
-        oy: screenView.oy * scale,
-      }
-
+      // Render map canvas
       renderScene(ctx, exportW, exportH, {
         mapSize: p.mapSize,
         image: p.mapImage,
@@ -213,51 +226,59 @@ export default function MapCanvas(props) {
         showBlueZoneMask: p.showBlueZoneMask ?? true,
         view: exportView,
         t: performance.now(),
-        viewportWidth: vw,
+        viewportWidth: mode === 'square' ? 800 : vw,
         exportScaleFactor: scale,
       })
 
-      // Draw bottom banner below the map canvas
-      ctx.fillStyle = 'rgba(7, 10, 15, 0.96)'
+      // Draw solid dark footer banner underneath map canvas
+      ctx.fillStyle = '#080D18'
       ctx.fillRect(0, exportH, exportW, bw)
+
+      // Top divider line (bright cyan stroke)
       ctx.strokeStyle = '#00e5ff'
-      ctx.lineWidth = Math.round(4 * scale)
+      ctx.lineWidth = Math.round(4 * (exportW / 2048))
       ctx.beginPath()
       ctx.moveTo(0, exportH)
       ctx.lineTo(exportW, exportH)
       ctx.stroke()
 
-      // Left: Map Title
-      ctx.font = `900 ${Math.round(34 * scale)}px Inter, system-ui, sans-serif`
+      const scaleF = exportW / 2048
+
+      // Left: Map Title (bold uppercase e.g. "ERANGEL MAP")
+      const titleText = `${p.mapName.toUpperCase()} MAP`
+      ctx.font = `900 ${Math.round(42 * scaleF)}px Inter, system-ui, sans-serif`
       ctx.fillStyle = '#ffffff'
       ctx.textAlign = 'left'
       ctx.textBaseline = 'alphabetic'
-      ctx.fillText(`${p.mapName.toUpperCase()} MAP`, Math.round(36 * scale), exportH + bw / 2 - Math.round(4 * scale))
+      ctx.fillText(titleText, Math.round(40 * scaleF), exportH + Math.round(56 * scaleF))
 
-      // Left Subtitle
-      ctx.font = `700 ${Math.round(20 * scale)}px Inter, system-ui, sans-serif`
+      // Left Subtitle: Analyst Credit
+      ctx.font = `800 ${Math.round(24 * scaleF)}px Inter, system-ui, sans-serif`
       ctx.fillStyle = '#FBBF24'
-      ctx.fillText(`Analysed by Ashitosh S. Biradar`, Math.round(36 * scale), exportH + bw / 2 + Math.round(28 * scale))
+      const analystLabel = analystName ? `Analysed by ${analystName}` : ''
+      ctx.fillText(analystLabel, Math.round(40 * scaleF), exportH + Math.round(106 * scaleF))
 
-      // Right: Tactical Details & Zone Count
-      ctx.textAlign = 'right'
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.9)'
-      ctx.font = `700 ${Math.round(18 * scale)}px Inter, sans-serif`
-      ctx.fillText(`BGMI Tactical Board · ${p.circles.length} Zones Placed`, exportW - Math.round(36 * scale), exportH + bw / 2 + Math.round(10 * scale))
+      // Right: Tactical Details / Strategy Description
+      if (descText) {
+        ctx.textAlign = 'right'
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.95)'
+        ctx.font = `700 ${Math.round(22 * scaleF)}px Inter, system-ui, sans-serif`
+        ctx.fillText(descText, exportW - Math.round(40 * scaleF), exportH + Math.round(82 * scaleF))
+      }
 
       off.toBlob((b) => {
         if (!b) return
         const url = URL.createObjectURL(b)
         const a = document.createElement('a')
         a.href = url
-        a.download = `${p.mapName.toLowerCase().replace(/\s+/g, '-')}-tactical-strategy.png`
+        a.download = `${p.mapName.toLowerCase().replace(/\s+/g, '-')}-tactical-map.png`
         a.click()
         URL.revokeObjectURL(url)
         // Clean up offscreen canvas memory
         off.width = off.height = 0
       })
     }
-  })
+  }, [])
 
   const toWorld = useCallback((e) => {
     if (!canvasRef.current) return [0, 0]

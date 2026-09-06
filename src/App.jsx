@@ -74,6 +74,10 @@ export default function App() {
   const [mapMenuOpen, setMapMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [savedModalOpen, setSavedModalOpen] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [analystName, setAnalystName] = useState('Ashitosh S. Biradar')
+  const [exportDesc, setExportDesc] = useState('')
+  const [exportMode, setExportMode] = useState('square')
   const [newStrategyTitle, setNewStrategyTitle] = useState('')
   const [savedStrategiesList, setSavedStrategiesList] = useState(() => getSavedStrategies())
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -881,7 +885,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => exportRef.current?.()}
+            onClick={() => setExportModalOpen(true)}
             className="flex h-9 sm:h-10 items-center gap-1 sm:gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 px-2.5 sm:px-4 text-[10px] sm:text-[11px] font-extrabold text-slate-950 shadow-[0_2px_12px_rgba(251,191,36,0.25)] transition-all duration-200 hover:shadow-[0_4px_20px_rgba(251,191,36,0.35)] hover:scale-[1.02] active:scale-95 min-h-[44px]"
           >
             <Download size={13} /> <span className="hidden sm:inline">Export</span>
@@ -1290,6 +1294,117 @@ export default function App() {
                 className="mt-5 w-full rounded-xl bg-cyan-500 py-2.5 text-[11px] font-extrabold text-slate-950 transition-all hover:bg-cyan-400 active:scale-[0.98]"
               >
                 Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export Options Modal */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-amber-400/30 bg-[#0B1220] p-5 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+            <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
+              <div className="flex items-center gap-2.5 text-sm font-extrabold text-white">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/15">
+                  <Download size={16} className="text-amber-400" />
+                </div>
+                <span>Export High-Res Strategy Map</span>
+              </div>
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Format Preview Badge */}
+            <div className="flex items-center justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3.5 py-2.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
+                <Sparkles size={14} className="text-cyan-400" /> 1:1 Square Map + Styled Footer
+              </div>
+              <span className="font-mono text-[10px] font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
+                2048 × 2188 px HD
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {/* Analyst Name Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Analyst Credit Name
+                </label>
+                <input
+                  type="text"
+                  value={analystName}
+                  onChange={(e) => setAnalystName(e.target.value)}
+                  placeholder="e.g. Ashitosh S. Biradar"
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-950/80 px-3.5 py-2.5 text-xs font-semibold text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Description / Subtitle Input */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Description / Strategy Note
+                </label>
+                <input
+                  type="text"
+                  value={exportDesc}
+                  onChange={(e) => setExportDesc(e.target.value)}
+                  placeholder={`BGMI Tactical Board · ${derivedCircles.length} Zones Placed`}
+                  className="w-full rounded-xl border border-slate-700/60 bg-slate-950/80 px-3.5 py-2.5 text-xs font-semibold text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none transition-colors"
+                />
+              </div>
+
+              {/* Layout Mode Selection */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                  Export Canvas Format
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setExportMode('square')}
+                    className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
+                      exportMode === 'square'
+                        ? 'border-amber-400 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+                        : 'border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <span className="text-[11px] font-extrabold">1:1 Square Map</span>
+                    <span className="text-[9px] opacity-75">Reference Format (2048x2188)</span>
+                  </button>
+                  <button
+                    onClick={() => setExportMode('view')}
+                    className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
+                      exportMode === 'view'
+                        ? 'border-amber-400 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
+                        : 'border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    <span className="text-[11px] font-extrabold">Current Screen View</span>
+                    <span className="text-[9px] opacity-75">Matches Viewport Framing</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setExportModalOpen(false)
+                  exportRef.current?.({
+                    analystName,
+                    description: exportDesc || `BGMI Tactical Board · ${derivedCircles.length} Zones Placed`,
+                    mode: exportMode,
+                  })
+                  showToast('Exporting High-Res PNG Image...')
+                }}
+                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 py-3 text-xs font-black text-slate-950 shadow-[0_2px_14px_rgba(251,191,36,0.3)] transition-all hover:scale-[1.02] active:scale-95 cursor-pointer min-h-[44px]"
+              >
+                <Download size={14} /> Download High-Res PNG Image
               </button>
             </div>
           </div>
