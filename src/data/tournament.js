@@ -34,7 +34,6 @@ export const MAP_TOURNAMENT_CONFIGS = {
     features: {
       bridgeCampDetector: true,
       ferryRouteOverlay: true,
-      waterHardShiftWarning: true,
     },
     chokePoints: [
       { name: 'Sosnovka North Bridge', x: 3450, y: 7050, radius: 450, alert: 'MILITARY NORTH BRIDGE CAMP DANGER' },

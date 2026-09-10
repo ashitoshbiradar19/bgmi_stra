@@ -65,7 +65,6 @@ export default function ZonePanel({
               .map((c) => {
                 const isSelected = selectedId === c.id
                 const breach = c.violating
-                const warn = false
                 const diam = `⌀${Math.round(c.r * 2)}m`
                 const circleColor = c.color || STAGE_COLORS[c.stage - 1] || '#FFFFFF'
                 return (

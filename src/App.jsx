@@ -472,7 +472,7 @@ export default function App() {
     () =>
       circles.map((c) => {
         const violating = containmentViolation(c, circles)
-        return { ...c, violating, waterRatio: 0, waterWarn: false }
+        return { ...c, violating }
       }),
     [circles],
   )
