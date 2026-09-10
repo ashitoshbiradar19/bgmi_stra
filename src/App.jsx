@@ -32,7 +32,6 @@ import Footer from './components/Footer'
 import { MAPS, MAP_LIST } from './data/maps'
 import { generateMap } from './lib/mapGen'
 import { STAGE_RADII, containmentViolation } from './lib/render'
-import { makeWaterSampler } from './lib/water'
 import { buildShareUrl, readShareFromUrl } from './lib/share'
 import { getTeam } from './data/teams'
 import {
@@ -132,12 +131,6 @@ export default function App() {
     return imageCache.current[mapId]
   }, [mapId, customImage, loadedImages])
 
-  const waterSampler = useMemo(() => {
-    if (!mapImage) return () => 0
-    const key = customImage ? 'custom' : mapId
-    if (!samplerCache.current[key]) samplerCache.current[key] = makeWaterSampler(mapImage, activeMap.theme)
-    return samplerCache.current[key]
-  }, [mapImage, mapId, customImage, activeMap])
 
   const pushHistory = useCallback(() => {
     setUndoStack((s) => [...s.slice(-49), { circles, annos }])
@@ -479,21 +472,12 @@ export default function App() {
     () =>
       circles.map((c) => {
         const violating = containmentViolation(c, circles)
-        let waterRatio = 0
-        let waterWarn = false
-        if (!violating && c.stage >= 4 && mapImage) {
-          waterRatio = waterSampler(c.x, c.y, c.r, mapSize)
-          waterWarn = waterRatio > 0.5
-        }
-        return { ...c, violating, waterRatio, waterWarn }
+        return { ...c, violating, waterRatio: 0, waterWarn: false }
       }),
-    [circles, mapSize, mapImage, waterSampler],
+    [circles],
   )
 
   const anyBreach = derivedCircles.some((c) => c.violating)
-  const anyWater = derivedCircles.some((c) => c.waterWarn && c.waterRatio > 0.5)
-
-  const waterWarnToastRef = useRef(false)
   const breachToastRef = useRef(false)
 
   useEffect(() => {
@@ -503,15 +487,7 @@ export default function App() {
     } else if (!anyBreach) {
       breachToastRef.current = false
     }
-
-    const waterCircle = derivedCircles.find((c) => c.stage >= 4 && c.waterRatio > 0.5)
-    if (waterCircle && !waterWarnToastRef.current) {
-      showToast(`Water-Lock Warning: Stage ${waterCircle.stage} covers ${Math.round(waterCircle.waterRatio * 100)}% water!`)
-      waterWarnToastRef.current = true
-    } else if (!waterCircle) {
-      waterWarnToastRef.current = false
-    }
-  }, [anyBreach, derivedCircles, showToast])
+  }, [anyBreach, showToast])
 
   const highlights = useMemo(() => {
     if (!training) return []
@@ -905,20 +881,10 @@ export default function App() {
       </header>
 
       {/* ================= Warning Banner ================= */}
-      {(anyBreach || anyWater) && (
-        <div
-          className={`flex shrink-0 items-center justify-center gap-2.5 border-b px-4 py-2.5 text-[11px] font-bold ${
-            anyBreach
-              ? 'border-red-500/50 bg-red-500/10 text-red-300'
-              : 'border-amber-500/30 bg-amber-500/8 text-amber-300'
-          }`}
-        >
-          {anyBreach ? <ShieldAlert size={15} className="text-red-400" /> : <AlertTriangle size={15} className="text-amber-400" />}
-          <span>
-            {anyBreach
-              ? 'Invalid Zone Boundary — Stage N+1 extends outside Stage N!'
-              : `Water-Lock Warning: Late-game zone covers >50% water!`}
-          </span>
+      {anyBreach && (
+        <div className="flex shrink-0 items-center justify-center gap-2.5 border-b border-red-500/50 bg-red-500/10 px-4 py-2.5 text-[11px] font-bold text-red-300">
+          <ShieldAlert size={15} className="text-red-400" />
+          <span>Invalid Zone Boundary — Stage N+1 extends outside Stage N!</span>
         </div>
       )}
 

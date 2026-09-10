@@ -823,7 +823,7 @@ function drawCircle(ctx, c, X, Y, selectedId, t, S = 1) {
   const y = Y(c.y)
   const r = Math.max(c.r * (X.mapScale || 1), 1.5)
   const contain = c.violating
-  const warn = !contain && (c.waterWarn || c.oob)
+  const warn = !contain && c.oob
 
   ctx.save()
   ctx.setLineDash([])
@@ -894,8 +894,6 @@ function drawCircle(ctx, c, X, Y, selectedId, t, S = 1) {
 
   if (contain && r > 28 * S) {
     label(ctx, '⚠️ INVALID ZONE BOUNDARY', x, y, '#ffffff', 'rgba(220,38,38,0.95)', 12, S)
-  } else if (c.waterWarn && r > 28 * S) {
-    label(ctx, `! WATER ${Math.round((c.waterRatio || 0) * 100)}%`, x, y, '#fed7aa', 'rgba(154,52,18,0.92)', 11, S)
   } else if (c.oob && r > 24 * S) {
     label(ctx, '! OUT OF BOUNDS', x, y, '#fed7aa', 'rgba(154,52,18,0.92)', 11, S)
   }

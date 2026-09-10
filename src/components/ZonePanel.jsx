@@ -1,4 +1,4 @@
-import { Trash2, CircleDot, Move, AlertTriangle, ShieldAlert, CheckCircle2, MousePointerClick, Palette, RotateCcw, Maximize2 } from 'lucide-react'
+import { Trash2, CircleDot, Move, ShieldAlert, CheckCircle2, MousePointerClick, Palette, RotateCcw, Maximize2 } from 'lucide-react'
 import { STAGE_RADII, STAGE_DIAMETERS, STAGE_COLORS } from '../lib/render'
 import { COLOR_PRESETS } from '../data/colors'
 
@@ -65,7 +65,7 @@ export default function ZonePanel({
               .map((c) => {
                 const isSelected = selectedId === c.id
                 const breach = c.violating
-                const warn = !breach && c.waterWarn
+                const warn = false
                 const diam = `⌀${Math.round(c.r * 2)}m`
                 const circleColor = c.color || STAGE_COLORS[c.stage - 1] || '#FFFFFF'
                 return (
@@ -77,8 +77,6 @@ export default function ZonePanel({
                         ? 'border-cyan-500/50 bg-cyan-500/10 shadow-[0_0_16px_rgba(6,182,212,0.15)]'
                         : breach
                         ? 'border-red-500/30 bg-red-500/5 hover:bg-red-500/10'
-                        : warn
-                        ? 'border-amber-500/25 bg-amber-500/5 hover:bg-amber-500/10'
                         : 'border-slate-800/40 bg-slate-800/20 hover:border-slate-700/60 hover:bg-slate-800/40'
                     }`}
                   >
@@ -86,7 +84,7 @@ export default function ZonePanel({
                       <span
                         className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/20 transition-transform group-hover:scale-110"
                         style={{
-                          backgroundColor: breach ? '#ef4444' : warn ? '#f59e0b' : circleColor,
+                          backgroundColor: breach ? '#ef4444' : circleColor,
                           boxShadow: `0 0 8px ${circleColor}88`,
                         }}
                       />
@@ -122,13 +120,7 @@ export default function ZonePanel({
                         </span>
                       )}
 
-                      {c.waterWarn && !breach && (
-                        <span className="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2 py-0.5 text-[9px] font-extrabold text-amber-400 border border-amber-500/20">
-                          <AlertTriangle size={9} /> {Math.round((c.waterRatio || 0) * 100)}% WATER
-                        </span>
-                      )}
-
-                      {!breach && !warn && !isSelected && (
+                      {!breach && !isSelected && (
                         <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
                           <CheckCircle2 size={11} /> OK
                         </span>
@@ -301,8 +293,6 @@ export default function ZonePanel({
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
           <span className="text-red-400 font-semibold">Containment:</span> Stage N+1 must fit inside Stage N.
-          <br />
-          <span className="text-amber-400 font-semibold">Water:</span> Stage 4+ zones with {'>'}50% water trigger alerts.
         </p>
       </div>
     </div>
