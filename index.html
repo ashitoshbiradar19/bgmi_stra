@@ -15,9 +15,16 @@
     <div id="root" class="h-full w-full"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+      if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch(() => {})
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (let reg of registrations) {
+              reg.update()
+            }
+          })
+          if (window.location.protocol === 'https:') {
+            navigator.serviceWorker.register('/sw.js').catch(() => {})
+          }
         })
       }
     </script>
