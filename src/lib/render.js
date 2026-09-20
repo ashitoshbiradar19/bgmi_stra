@@ -689,7 +689,8 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
   } else if (a.type === 'circle' && P.length > 0) {
     const p0 = a.points[0]
     const p1 = a.points[1] || a.points[0]
-    const rWorld = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || (a.r || 50)
+    const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    const rWorld = typeof a.r === 'number' && a.r > 0 ? a.r : (dist || 50)
     const r = Math.max(rWorld * (X.mapScale || 1), 3)
     const cx = P[0][0]
     const cy = P[0][1]
@@ -729,7 +730,8 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     if (a.type === 'circle' && P.length > 0) {
       const p0 = a.points[0]
       const p1 = a.points[1] || a.points[0]
-      const rWorld = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || (a.r || 50)
+      const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    const rWorld = typeof a.r === 'number' && a.r > 0 ? a.r : (dist || 50)
       const r = Math.max(rWorld * (X.mapScale || 1), 3)
       const cx = P[0][0]
       const cy = P[0][1]

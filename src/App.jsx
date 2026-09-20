@@ -170,12 +170,13 @@ export default function App() {
         else if (s.m === 'custom') setCustomName(s.n || 'Custom')
         if (s.g !== undefined) setGridOn(!!s.g)
 
-        const loadedCircles = (s.c || []).map(([stage, x, y, rVal]) => ({
+        const loadedCircles = (s.c || []).map(([stage, x, y, rVal, colorVal]) => ({
           id: uid(),
           stage,
           r: typeof rVal === 'number' && rVal > 0 ? rVal : STAGE_RADII[stage - 1] || 100,
           x,
           y,
+          ...(colorVal ? { color: colorVal } : {}),
         }))
 
         const loadedAnnos = (s.a || []).map((item, i) => {
@@ -557,11 +558,12 @@ export default function App() {
       m: customImage ? 'custom' : mapId,
       g: gridOn ? 1 : 0,
       n: customImage ? customName : undefined,
-      c: circles.map(({ stage, x, y, r }) => [
+      c: circles.map(({ stage, x, y, r, color }) => [
         +stage.toFixed(0),
         Math.round(x),
         Math.round(y),
         Math.round(r || STAGE_RADII[stage - 1] || 100),
+        color || undefined,
       ]),
       a: annos
         .filter((a) => !a.hidden)
@@ -922,7 +924,7 @@ export default function App() {
                 color: team.color,
                 label: team.name,
                 fontSize: 22,
-                points: [[0, 0]],
+                points: [[mapSize / 2, mapSize / 2]],
               }
               setAnnos((as) => [...as, teamAnno])
               showToast(`Applied ${team.name} to map`)
@@ -988,7 +990,7 @@ export default function App() {
                     color: team.color,
                     label: team.name,
                     fontSize: 22,
-                    points: [[0, 0]],
+                    points: [[mapSize / 2, mapSize / 2]],
                   }
                   setAnnos((as) => [...as, teamAnno])
                   showToast(`Applied ${team.name} to map`)

@@ -377,10 +377,28 @@ export default function MapCanvas(props) {
     return null
   }
 
+  const hitCircleAnno = (wx, wy, list) => {
+    const v = viewRef.current
+    const tol = 24 / (v.ppm * v.zoom)
+    for (let i = list.length - 1; i >= 0; i--) {
+      const a = list[i]
+      if (a.type !== 'circle') continue
+      const p0 = a.points?.[0]
+      if (!p0) continue
+      const p1 = a.points?.[1] || p0
+      const r = typeof a.r === 'number' && a.r > 0 ? a.r : Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 50
+      const dist = Math.hypot(wx - p0[0], wy - p0[1])
+      if (Math.abs(dist - r) <= tol || dist <= r) return a
+    }
+    return null
+  }
+
   // Pointer & Touch Handlers
   const onPointerDown = (e) => {
     if (e.cancelable) e.preventDefault()
-    if (canvasRef.current) canvasRef.current.setPointerCapture(e.pointerId)
+    if (canvasRef.current && pointersRef.current.size < 2) {
+      try { canvasRef.current.setPointerCapture(e.pointerId) } catch {}
+    }
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
 
     if (pointersRef.current.size === 2) {
@@ -438,6 +456,20 @@ export default function MapCanvas(props) {
           id: comp.id,
           dx: wx - Math.min(comp.points[0][0], comp.points[1][0]),
           dy: wy - Math.min(comp.points[0][1], comp.points[1][1]),
+          moved: false,
+        }
+        requestRender()
+        return
+      }
+
+      const hitCirc = hitCircleAnno(wx, wy, as)
+      if (hitCirc) {
+        propsRef.current.setSelectedId(hitCirc.id)
+        interRef.current = {
+          mode: 'drag-line',
+          id: hitCirc.id,
+          origPoints: hitCirc.points.map((p) => [...p]),
+          startWorld: [wx, wy],
           moved: false,
         }
         requestRender()
@@ -633,6 +665,23 @@ export default function MapCanvas(props) {
       interRef.current = { mode: null }
       requestRender()
       return
+    }
+
+    if (it.mode === 'drag-text' && !it.moved) {
+      const a = propsRef.current.annos.find((n) => n.id === it.id)
+      if (a) {
+        setTextModal({
+          id: a.id,
+          isEditing: true,
+          x: a.points[0][0],
+          y: a.points[0][1],
+          color: a.color,
+          fontSize: a.fontSize || 20,
+          opacity: a.opacity !== undefined ? a.opacity : 1,
+          label: a.label || '',
+          plainText: !!a.plainText,
+        })
+      }
     }
 
     if (

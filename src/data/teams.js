@@ -183,9 +183,9 @@ export const TEAMS = [
   team('Elite Nova Esports', 'ELTE', 147, 146, {
     players: ['Owais'],
   }),
-  team('Gladiators Esports', 'GDR', 148, 147),
+  team('Gladiators Esports', 'GLAD', 148, 147),
   team('Blue Army', 'V1BA', 149, 148),
-  team('Team Aryan', 'TMG', 150, 149),
+  team('Team Aryan', 'TARY', 150, 149),
   team('Zero Ark', 'ZA', 151, 150),
   team('4Ends Esports', '4END', 152, 151),
   team('Godsent Forever', 'GDS4', 153, 152),

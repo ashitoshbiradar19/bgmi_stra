@@ -1,33 +1,65 @@
-// URL state serialization: compact JSON -> LZW -> base64url (no backend needed)
+// URL state serialization: compact JSON -> UTF-8 LZW -> base64url (no backend needed)
 
-function lzwCompress(raw) {
-  if (!raw) return []
-  const dict = {}
+function lzwCompressBytes(bytes) {
+  if (!bytes || !bytes.length) return []
+  const dict = new Map()
   let next = 256
-  let phrase = ''
+  let phrase = []
   const out = []
-  for (const ch of raw) {
-    const cand = phrase + ch
-    if (dict[cand] !== undefined || cand.length === 1) {
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i]
+    const cand = phrase.concat(b)
+    const key = cand.join(',')
+    if (phrase.length === 0 || dict.has(key)) {
       phrase = cand
     } else {
-      out.push(dict[phrase] ?? phrase.charCodeAt(0))
-      dict[cand] = next++
-      phrase = ch
-    }
-    if (next > 55000) {
-      // dictionary overflow guard — flush and restart
-      out.push(dict[phrase] ?? phrase.charCodeAt(0))
-      Object.keys(dict).forEach((k) => delete dict[k])
-      next = 256
-      phrase = ''
+      if (phrase.length === 1) {
+        out.push(phrase[0])
+      } else {
+        out.push(dict.get(phrase.join(',')))
+      }
+      if (next < 55000) {
+        dict.set(key, next++)
+      }
+      phrase = [b]
     }
   }
-  if (phrase) out.push(dict[phrase] ?? phrase.charCodeAt(0))
+  if (phrase.length > 0) {
+    if (phrase.length === 1) out.push(phrase[0])
+    else out.push(dict.get(phrase.join(',')))
+  }
   return out
 }
 
-function lzwDecompress(codes) {
+function lzwDecompressBytes(codes) {
+  if (!codes || !codes.length) return new Uint8Array(0)
+  const dict = new Map()
+  let next = 256
+
+  let prevVal = codes[0] < 256 ? [codes[0]] : dict.get(codes[0]) || [0]
+  const out = [...prevVal]
+
+  for (let i = 1; i < codes.length; i++) {
+    const code = codes[i]
+    let entry
+    if (code < 256) {
+      entry = [code]
+    } else if (dict.has(code)) {
+      entry = dict.get(code)
+    } else {
+      entry = prevVal.concat(prevVal[0])
+    }
+    out.push(...entry)
+    if (next < 55000) {
+      dict.set(next++, prevVal.concat(entry[0]))
+    }
+    prevVal = entry
+  }
+  return new Uint8Array(out)
+}
+
+// Fallback legacy decompressor for older ASCII-only hashes
+function legacyLzwDecompress(codes) {
   if (!codes.length) return ''
   const dict = {}
   let next = 256
@@ -74,11 +106,12 @@ function bytesToCodes(bytes) {
   return codes
 }
 
-// state: { m, g, c:[{stage,x,y}], a:[[type,color,points,label?,openFlag?,fontSize?]] }
 export function encodeState(state) {
   try {
     const json = JSON.stringify(state)
-    return b64urlEncode(codesToBytes(lzwCompress(json)))
+    const utf8Bytes = new TextEncoder().encode(json)
+    const compressedCodes = lzwCompressBytes(utf8Bytes)
+    return b64urlEncode(codesToBytes(compressedCodes))
   } catch {
     return null
   }
@@ -86,9 +119,21 @@ export function encodeState(state) {
 
 export function decodeState(str) {
   try {
-    return JSON.parse(lzwDecompress(bytesToCodes(b64urlDecode(str))))
+    const rawBytes = b64urlDecode(str)
+    const codes = bytesToCodes(rawBytes)
+    const decompressedBytes = lzwDecompressBytes(codes)
+    const json = new TextDecoder().decode(decompressedBytes)
+    return JSON.parse(json)
   } catch {
-    return null
+    // Try legacy decoder fallback
+    try {
+      const rawBytes = b64urlDecode(str)
+      const codes = bytesToCodes(rawBytes)
+      const legacyJson = legacyLzwDecompress(codes)
+      return JSON.parse(legacyJson)
+    } catch {
+      return null
+    }
   }
 }
 
@@ -104,4 +149,5 @@ export function readShareFromUrl() {
   if (!h.startsWith('#s=')) return null
   return decodeState(h.slice(3))
 }
+
 
