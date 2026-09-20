@@ -706,11 +706,15 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     label(ctx, a.label || `RADIUS ${Math.round(rWorld)}m`, cx, cy - r - 8 * S, a.color, 'rgba(7,10,15,0.92)', 10, S)
   } else if (a.type === 'text' && P.length > 0) {
     const fs = a.fontSize || 20
+    const alpha = typeof a.opacity === 'number' ? Math.max(0.05, Math.min(1, a.opacity)) : 1
+    ctx.save()
+    ctx.globalAlpha = alpha
     if (a.plainText) {
       plainLabel(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, fs, S)
     } else {
       label(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, 'rgba(7,10,15,0.92)', fs, S)
     }
+    ctx.restore()
   } else if (a.type === 'team' && P.length > 0) {
     drawTeam(ctx, a, P[0][0], P[0][1], S, Z)
   } else if (a.type === 'pin') {

@@ -41,3 +41,10 @@ export const STROKE_WIDTH_PRESETS = [
   { label: 'Heavy (12px)', width: 12 },
   { label: 'Bold (18px)', width: 18 },
 ]
+
+export const OPACITY_PRESETS = [
+  { label: '100%', val: 1.0 },
+  { label: '75%', val: 0.75 },
+  { label: '50%', val: 0.50 },
+  { label: '25%', val: 0.25 },
+]

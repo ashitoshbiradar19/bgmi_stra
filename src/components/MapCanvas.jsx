@@ -15,7 +15,7 @@ function distToSegment(px, py, vx, vy, wx, wy) {
   return Math.hypot(px - (vx + t * (wx - vx)), py - (vy + t * (wy - vy)))
 }
 
-import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS } from '../data/colors'
+import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS, OPACITY_PRESETS } from '../data/colors'
 
 function tempAnno(it, penColor) {
   if (!it) return null
@@ -78,6 +78,21 @@ export default function MapCanvas(props) {
 
   const [textModal, setTextModal] = useState(null)
   const [teamQuery, setTeamQuery] = useState('')
+
+  const filteredTeams = useMemo(() => {
+    const q = teamQuery.trim().toLowerCase()
+    if (!q) return TEAMS
+    const cleanQ = q.replace(/#/g, '').replace(/rank\s*/gi, '').trim()
+    const tokens = cleanQ.split(/\s+/).filter(Boolean)
+    return TEAMS.filter((t) => {
+      const playersStr = t.players ? t.players.join(' ') : ''
+      const orgStr = t.org || ''
+      const rankStr = String(t.rank)
+      const textToMatch = `${t.name} ${t.short} ${rankStr} ${playersStr} ${orgStr}`.toLowerCase()
+      return tokens.every((tok) => textToMatch.includes(tok))
+    })
+  }, [teamQuery])
+
   const rafRef = useRef(null)
   const dirtyRef = useRef(true)
 
@@ -469,12 +484,13 @@ export default function MapCanvas(props) {
           y: hitPt.points[0][1],
           color: hitPt.color,
           fontSize: hitPt.fontSize || 20,
+          opacity: hitPt.opacity !== undefined ? hitPt.opacity : 1,
           label: hitPt.label || '',
           plainText: !!hitPt.plainText,
         })
         return
       }
-      setTextModal({ x: wx, y: wy, color: pc, fontSize: 20, label: '', plainText: false })
+      setTextModal({ x: wx, y: wy, color: pc, fontSize: 20, opacity: 1, label: '', plainText: false })
       return
     }
 
@@ -943,7 +959,7 @@ export default function MapCanvas(props) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
                 <Shield size={11} className="text-amber-400" />
-                <span>Teams ({TEAMS.length})</span>
+                <span>Teams ({filteredTeams.length})</span>
               </div>
               <span className="text-[9px] font-medium text-slate-600">Drag to map</span>
             </div>
@@ -953,7 +969,7 @@ export default function MapCanvas(props) {
                 type="text"
                 value={teamQuery}
                 onChange={(e) => setTeamQuery(e.target.value)}
-                placeholder="Search team..."
+                placeholder="Search team or rank..."
                 className="w-full rounded-xl border border-slate-700/50 bg-slate-950/50 pl-8 pr-8 py-2 text-xs font-medium text-slate-100 placeholder-slate-500 focus:border-amber-400/50 focus:outline-none transition-colors"
               />
               {teamQuery && (
@@ -967,15 +983,8 @@ export default function MapCanvas(props) {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(teamQuery.trim()
-                ? TEAMS.filter((t) =>
-                    `${t.name} ${t.short} ${t.event} ${t.players ? t.players.join(' ') : ''}`
-                      .toLowerCase()
-                      .includes(teamQuery.trim().toLowerCase()),
-                  )
-                : TEAMS
-              ).map((t) => (
+            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
+              {filteredTeams.map((t) => (
                 <div
                   key={t.id}
                   draggable
@@ -1023,11 +1032,7 @@ export default function MapCanvas(props) {
                   </div>
                 </div>
               ))}
-              {teamQuery.trim() && TEAMS.filter((t) =>
-                    `${t.name} ${t.short} ${t.event} ${t.players ? t.players.join(' ') : ''}`
-                      .toLowerCase()
-                      .includes(teamQuery.trim().toLowerCase()),
-                  ).length === 0 && (
+              {filteredTeams.length === 0 && (
                 <p className="col-span-2 rounded-xl border border-slate-800/60 bg-slate-900/40 px-3 py-4 text-center text-[10px] text-slate-500">
                   No teams match "{teamQuery.trim()}"
                 </p>
@@ -1302,6 +1307,47 @@ export default function MapCanvas(props) {
                         ))}
                       </div>
                     </div>
+
+                    {/* Text Opacity Slider & Presets */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Text Opacity</span>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {Math.round((selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={1.0}
+                        step={0.05}
+                        value={selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value)
+                          updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: val })
+                          requestRender()
+                        }}
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                      <div className="grid grid-cols-4 gap-1">
+                        {OPACITY_PRESETS.map((p) => (
+                          <button
+                            key={p.label}
+                            onClick={() => {
+                              updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: p.val })
+                              requestRender()
+                            }}
+                            className={`rounded-lg border py-1 text-[10px] font-bold transition-all duration-150 ${
+                              (selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) === p.val
+                                ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
+                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1503,6 +1549,51 @@ export default function MapCanvas(props) {
               </div>
             </div>
 
+            {/* Text Opacity Slider & Presets */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                <span>Text Opacity</span>
+                <span className="font-mono text-amber-400 normal-case tracking-normal">
+                  {Math.round((textModal.opacity !== undefined ? textModal.opacity : 1) * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0.1}
+                max={1.0}
+                step={0.05}
+                value={textModal.opacity !== undefined ? textModal.opacity : 1}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value)
+                  setTextModal((m) => ({ ...m, opacity: val }))
+                  if (textModal.isEditing && textModal.id) {
+                    updateAnnoField && updateAnnoField(textModal.id, { opacity: val })
+                  }
+                }}
+                className="w-full cursor-pointer accent-amber-400"
+              />
+              <div className="grid grid-cols-4 gap-1">
+                {OPACITY_PRESETS.map((p) => (
+                  <button
+                    key={p.label}
+                    onClick={() => {
+                      setTextModal((m) => ({ ...m, opacity: p.val }))
+                      if (textModal.isEditing && textModal.id) {
+                        updateAnnoField && updateAnnoField(textModal.id, { opacity: p.val })
+                      }
+                    }}
+                    className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
+                      (textModal.opacity !== undefined ? textModal.opacity : 1) === p.val
+                        ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
+                        : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <div className="flex justify-between items-center text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
                 <span>Text Color</span>
@@ -1596,7 +1687,10 @@ export default function MapCanvas(props) {
                       updateAnnoLabel && updateAnnoLabel(textModal.id, textModal.label.trim())
                       if (textModal.fontSize) updateAnnoFontSize && updateAnnoFontSize(textModal.id, textModal.fontSize)
                       if (textModal.color) handleColorSelect && handleColorSelect(textModal.color)
-                      if (textModal.plainText !== undefined) updateAnnoField && updateAnnoField(textModal.id, { plainText: !!textModal.plainText })
+                      updateAnnoField && updateAnnoField(textModal.id, {
+                        plainText: !!textModal.plainText,
+                        opacity: textModal.opacity !== undefined ? textModal.opacity : 1,
+                      })
                     } else {
                       const id = uid()
                       addAnno({
@@ -1604,6 +1698,7 @@ export default function MapCanvas(props) {
                         type: 'text',
                         color: textModal.color || penColor,
                         fontSize: textModal.fontSize || 20,
+                        opacity: textModal.opacity !== undefined ? textModal.opacity : 1,
                         label: textModal.label.trim(),
                         plainText: !!textModal.plainText,
                         points: [[textModal.x, textModal.y]],

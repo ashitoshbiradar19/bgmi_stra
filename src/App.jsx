@@ -199,7 +199,7 @@ export default function App() {
             }
           } else {
             // v2 Object format with 100% property retention
-            const { t: type, c: color, p: points, l: label, o: openFlag, fs: fontSizeVal, w: widthVal, tid: teamIdVal, sz: sizeVal, url: logoUrlVal } = item
+            const { t: type, c: color, p: points, l: label, o: openFlag, fs: fontSizeVal, w: widthVal, tid: teamIdVal, sz: sizeVal, url: logoUrlVal, op: opacityVal, pt: plainTextVal } = item
             const team = type === 'team' ? getTeam(teamIdVal) : null
             return {
               id: uid() + i,
@@ -214,6 +214,8 @@ export default function App() {
               ...(openFlag === 0 ? { open: false } : type === 'vehicle' ? { open: true } : {}),
               ...(typeof fontSizeVal === 'number' ? { fontSize: fontSizeVal } : {}),
               ...(typeof widthVal === 'number' ? { width: widthVal } : {}),
+              ...(typeof opacityVal === 'number' ? { opacity: opacityVal } : {}),
+              ...(typeof plainTextVal === 'boolean' ? { plainText: plainTextVal } : {}),
             }
           }
         })
@@ -571,6 +573,8 @@ export default function App() {
           o: a.open === false ? 0 : undefined,
           fs: a.fontSize || undefined,
           w: a.width || undefined,
+          op: a.opacity !== undefined ? a.opacity : undefined,
+          pt: a.plainText !== undefined ? a.plainText : undefined,
           tid: a.teamId || undefined,
           sz: a.size || undefined,
           url: a.logoUrl || undefined,

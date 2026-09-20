@@ -29,7 +29,7 @@ import TeamRecords from './TeamRecords'
 import { MAPS, PRESET_STRATEGIES } from '../data/maps'
 import { MAP_TOURNAMENT_CONFIGS, analyzeRondoTerrain, checkBridgeCamp } from '../data/tournament'
 import { getReachableCompounds } from '../lib/render'
-import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS } from '../data/colors'
+import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS, OPACITY_PRESETS } from '../data/colors'
 
 const TOOLS = [
   { id: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
@@ -294,6 +294,42 @@ export default function Sidebar(props) {
                             className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
                               (selectedAnno.fontSize || 20) === p.size
                                 ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300'
+                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Text Opacity Controls */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <SectionTitle>Text Opacity</SectionTitle>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {Math.round((selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.1}
+                        max={1.0}
+                        step={0.05}
+                        value={selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1}
+                        onChange={(e) =>
+                          updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: parseFloat(e.target.value) })
+                        }
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                      <div className="grid grid-cols-4 gap-1">
+                        {OPACITY_PRESETS.map((p) => (
+                          <button
+                            key={p.label}
+                            onClick={() => updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: p.val })}
+                            className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
+                              (selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) === p.val
+                                ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
                                 : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
                             }`}
                           >

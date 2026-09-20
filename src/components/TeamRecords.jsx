@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Trophy, Users, Target, Shield, Sword, RotateCw, TrendingUp, ChevronRight, ChevronDown, Award, Star, Search } from 'lucide-react'
+import { Trophy, Users, Target, Shield, Sword, RotateCw, TrendingUp, ChevronRight, ChevronDown, Award, Star, Search, X } from 'lucide-react'
 import { TEAM_RECORDS, HEAD_TO_HEAD, PRIZE_MONEY, MVP_AWARDS, STRENGTH_MATRIX } from '../data/teamRecords'
 
 function SectionLabel({ children, className = '' }) {
@@ -43,6 +43,7 @@ function ExpansionRow({ title, children, defaultOpen = false }) {
 export default function TeamRecords({ onApply }) {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [activeTab, setActiveTab] = useState('teams')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const tabs = [
     { id: 'teams', label: 'Teams' },
@@ -51,10 +52,27 @@ export default function TeamRecords({ onApply }) {
     { id: 'matrix', label: 'Matrix' },
   ]
 
-  const selected = useMemo(
-    () => TEAM_RECORDS.find((t) => t.id === selectedTeam) || TEAM_RECORDS[0],
-    [selectedTeam],
-  )
+  const filteredTeams = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return TEAM_RECORDS
+    const tokens = q.split(/\s+/).filter(Boolean)
+    return TEAM_RECORDS.filter((team) => {
+      const rosterPlayers = team.roster
+        ? team.roster.map((r) => `${r.id} ${r.role} ${r.realName || ''}`).join(' ')
+        : team.rosters
+        ? Object.values(team.rosters).flatMap(list => list.map(r => `${r.id} ${r.role}`)).join(' ')
+        : ''
+      const text = `${team.name} ${team.short} ${team.game} ${team.org || ''} ${team.sponsors || ''} ${team.founder || ''} ${rosterPlayers}`.toLowerCase()
+      return tokens.every((token) => text.includes(token))
+    })
+  }, [searchQuery])
+
+  const selected = useMemo(() => {
+    if (selectedTeam && filteredTeams.some((t) => t.id === selectedTeam)) {
+      return TEAM_RECORDS.find((t) => t.id === selectedTeam)
+    }
+    return filteredTeams[0] || null
+  }, [selectedTeam, filteredTeams])
 
   return (
     <div className="space-y-4">
@@ -91,11 +109,32 @@ export default function TeamRecords({ onApply }) {
             </p>
           </div>
 
+          {/* Search Bar */}
+          <div className="relative">
+            <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search team or roster..."
+              className="w-full rounded-xl border border-slate-800/60 bg-slate-950/60 pl-8 pr-8 py-2 text-xs font-medium text-slate-100 placeholder-slate-500 focus:border-cyan-500/50 focus:outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
           {/* Team Selector */}
           <div className="space-y-2">
-            <SectionLabel>Select Team</SectionLabel>
-            <div className="grid grid-cols-2 gap-1.5">
-              {TEAM_RECORDS.map((team) => (
+            <SectionLabel>Select Team ({filteredTeams.length})</SectionLabel>
+            <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+              {filteredTeams.map((team) => (
                 <button
                   key={team.id}
                   onClick={() => setSelectedTeam(team.id)}
@@ -112,6 +151,11 @@ export default function TeamRecords({ onApply }) {
                   <span className="truncate text-[11px] font-bold">{team.short}</span>
                 </button>
               ))}
+              {filteredTeams.length === 0 && (
+                <p className="col-span-2 py-4 text-center text-xs text-slate-500">
+                  No teams found matching "{searchQuery}"
+                </p>
+              )}
             </div>
           </div>
 
