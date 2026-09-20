@@ -184,6 +184,21 @@ export const TEAMS = [
     logo: false,
     players: ['Owais'],
   }),
+  team('Gladiators Esports', 'GLAD', 148, 147, { logo: false }),
+  team('Blue Army', 'BARMY', 149, 148, { logo: false }),
+  team('Team Aryan', 'ARYAN', 150, 149, { logo: false }),
+  team('Zero Ark', 'ZARK', 151, 150, { logo: false }),
+  team('4Ends Esports', '4ENDS', 152, 151, { logo: false }),
+  team('Godsent Forever', 'GSF', 153, 152, { logo: false }),
+  team('HyperCatz', 'HCATZ', 154, 153, { logo: false }),
+  team('Iris Esports', 'IRIS', 155, 154, { logo: false }),
+  team('K9 Esports', 'K9', 156, 155, { logo: false }),
+  team('Quantum Sparks', 'QSPK', 157, 156, { logo: false }),
+  team('Raspator Esports', 'RSP', 158, 157, { logo: false }),
+  team('Santa Esports', 'SANTA', 159, 158, { logo: false }),
+  team('SBS Esports', 'SBS', 160, 159, { logo: false }),
+  team('The Knight Mobs', 'TKM', 161, 160, { logo: false }),
+  team('Vijay Esports', 'VJ', 162, 161, { logo: false }),
 ]
 
 export const TEAM_MAP = Object.fromEntries(TEAMS.map((t) => [t.id, t]))

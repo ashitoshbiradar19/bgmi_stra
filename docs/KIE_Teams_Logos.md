@@ -152,3 +152,67 @@ Total teams: 145
 | 143 | TCWXEMP | TCW | https://d2tx97mxhhykfs.cloudfront.net/team480/TCW.png |
 | 144 | IMPRNT ESPORTS | IMPT | https://d2tx97mxhhykfs.cloudfront.net/team480/IMPT.png |
 | 145 | 7 GODS ESPORTS | 7GS | https://d2tx97mxhhykfs.cloudfront.net/team480/7GS.png |
+
+---
+
+## Tournament Groups (48 Teams) Cross-Reference & Status
+
+### Group A (16 Teams)
+| Input Team Name | Status | KIE Rank / Short | Logo Status |
+|-----------------|--------|------------------|-------------|
+| 7Gods Esports | Present | Rank 145 (7GS) | https://d2tx97mxhhykfs.cloudfront.net/team480/7GS.png |
+| 8Bit | Present | Rank 15 (8BIT) | https://d2tx97mxhhykfs.cloudfront.net/team480/8BIT.png |
+| Elite Nova | Added (Rank 147) | ENOV | Non-KIE (Fallback Badge) |
+| Genesis Esports | Present | Rank 4 (GENS) | https://d2tx97mxhhykfs.cloudfront.net/team480/GENS.png |
+| Gladiators Esports | **Newly Added (Rank 148)** | GLAD | Non-KIE (Fallback Badge) |
+| GodLike Esports | Present | Rank 5 (GODL) | https://d2tx97mxhhykfs.cloudfront.net/team480/GODL.png |
+| Myth Official | Present | Rank 32 (MYTH) | https://d2tx97mxhhykfs.cloudfront.net/team480/MYTH.png |
+| Nebula Esports | Present | Rank 9 (NBE) | https://d2tx97mxhhykfs.cloudfront.net/team480/NBE.png |
+| Orangutan | Present | Rank 2 (OG) | https://d2tx97mxhhykfs.cloudfront.net/team480/OG.png |
+| Reckoning Esports | Present | Rank 13 (RGE) | https://d2tx97mxhhykfs.cloudfront.net/team480/RGE.png |
+| Revenant XSpark | Present | Rank 10 (RNTX) | https://d2tx97mxhhykfs.cloudfront.net/team480/RNTX.png |
+| Apex Gaming | Present | Rank 7 (TAG) | https://d2tx97mxhhykfs.cloudfront.net/team480/TAG.png |
+| Team Outrage | Added (Rank 146) | OUTR | Non-KIE (Fallback Badge) |
+| Team Soul | Present | Rank 1 (SOUL) | https://d2tx97mxhhykfs.cloudfront.net/team480/SOUL.png |
+| Team Tamilas | Present | Rank 21 (TT) | https://d2tx97mxhhykfs.cloudfront.net/team480/TT.png |
+| Vasista Esports | Present | Rank 11 (VE) | https://d2tx97mxhhykfs.cloudfront.net/team480/VE.png |
+
+### Group B (16 Teams)
+| Input Team Name | Status | KIE Rank / Short | Logo Status |
+|-----------------|--------|------------------|-------------|
+| 4TR Official | Present | Rank 22 (4TR) | https://d2tx97mxhhykfs.cloudfront.net/team480/4TR.png |
+| Blitz Esports | Present | Rank 44 (BLTZ) | https://d2tx97mxhhykfs.cloudfront.net/team480/BLTZ.png |
+| Blue Army | **Newly Added (Rank 149)** | BARMY | Non-KIE (Fallback Badge) |
+| Higgboson Esports | Present | Rank 69 (HBSN) | https://d2tx97mxhhykfs.cloudfront.net/team480/HBSN.png |
+| Lastade Esports | Present | Rank 72 (LSDE) | https://d2tx97mxhhykfs.cloudfront.net/team480/LSDE.png |
+| Madkings | Present | Rank 20 (MAD) | https://d2tx97mxhhykfs.cloudfront.net/team480/MAD.png |
+| Meta Ninza | Present | Rank 24 (NINZ) | https://d2tx97mxhhykfs.cloudfront.net/team480/NINZ.png |
+| MYSTERIOUS 4 | Present | Rank 18 (M4) | https://d2tx97mxhhykfs.cloudfront.net/team480/M4.png |
+| Rapid Chaos | Present | Rank 76 (RCE) | https://d2tx97mxhhykfs.cloudfront.net/team480/RCE.png |
+| Rising Esports | Present | Rank 74 (RIE) | https://d2tx97mxhhykfs.cloudfront.net/team480/RIE.png |
+| Team Aryan | **Newly Added (Rank 150)** | ARYAN | Non-KIE (Fallback Badge) |
+| Welt Esports | Present | Rank 33 (WELT) | https://d2tx97mxhhykfs.cloudfront.net/team480/WELT.png |
+| White Walkers | Present | Rank 43 (WW) | https://d2tx97mxhhykfs.cloudfront.net/team480/WW.png |
+| WindGod Esports | Present | Rank 59 (WIND) | https://d2tx97mxhhykfs.cloudfront.net/team480/WIND.png |
+| Wyld Fangs | Present | Rank 14 (WF) | https://d2tx97mxhhykfs.cloudfront.net/team480/WF.png |
+| Zero Ark | **Newly Added (Rank 151)** | ZARK | Non-KIE (Fallback Badge) |
+
+### Group C (16 Teams)
+| Input Team Name | Status | KIE Rank / Short | Logo Status |
+|-----------------|--------|------------------|-------------|
+| 4Ends Esports | **Newly Added (Rank 152)** | 4ENDS | Non-KIE (Fallback Badge) |
+| Carpe Diem | Present | Rank 125 (CARP) | https://d2tx97mxhhykfs.cloudfront.net/team480/CARP.png |
+| GEN×FM | Present | Rank 53 (GFM) | https://d2tx97mxhhykfs.cloudfront.net/team480/GFM.png |
+| Godsent Forever | **Newly Added (Rank 153)** | GSF | Non-KIE (Fallback Badge) |
+| HyperCatz | **Newly Added (Rank 154)** | HCATZ | Non-KIE (Fallback Badge) |
+| Iris Esports | **Newly Added (Rank 155)** | IRIS | Non-KIE (Fallback Badge) |
+| K9 Esports | **Newly Added (Rank 156)** | K9 | Non-KIE (Fallback Badge) |
+| LEFP | Present | Rank 27 (LEFP) | https://d2tx97mxhhykfs.cloudfront.net/team480/LEFP.png |
+| Naqsh Esports | Present | Rank 18 (M4) | https://d2tx97mxhhykfs.cloudfront.net/team480/M4.png |
+| Quantum Sparks | **Newly Added (Rank 157)** | QSPK | Non-KIE (Fallback Badge) |
+| Raspator Esports | **Newly Added (Rank 158)** | RSP | Non-KIE (Fallback Badge) |
+| Santa Esports | **Newly Added (Rank 159)** | SANTA | Non-KIE (Fallback Badge) |
+| SBS Esports | **Newly Added (Rank 160)** | SBS | Non-KIE (Fallback Badge) |
+| Team H4K | Present | Rank 54 (H4K) | https://d2tx97mxhhykfs.cloudfront.net/team480/H4K.png |
+| The Knight Mobs | **Newly Added (Rank 161)** | TKM | Non-KIE (Fallback Badge) |
+| Vijay Esports | **Newly Added (Rank 162)** | VJ | Non-KIE (Fallback Badge) |

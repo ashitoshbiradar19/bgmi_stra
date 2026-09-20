@@ -128,13 +128,29 @@ Primary Purpose  : Professional-grade tactical analysis, playzone management, ci
 
 
 ================================================================================
+10. COMPLETE REMOVAL OF WATER-LOCK WARNING SYSTEM (src/App.jsx, src/components/ZonePanel.jsx, src/lib/render.js, src/data/tournament.js)
+================================================================================
+• Removed Water Warnings Across UI & Engine:
+  - Completely stripped all water-lock alert banners (`Water-Lock Warning: Late-game zone covers >50% water!`), toast notifications, warning badges in ZonePanel, and canvas label overlays (`! WATER X%`).
+  - Cleaned derived circle data structures (`derivedCircles`) and tournament map configurations.
+
+
+================================================================================
+11. NETWORK-FIRST PWA SERVICE WORKER & AUTOMATED CACHE INVALIDATION (public/sw.js, index.html)
+================================================================================
+• Network-First Service Worker Strategy (`public/sw.js`):
+  - Updated PWA service worker from stale cache-first to Network-First strategy (`bgmi-strategy-v3-fresh`).
+  - Ensures client browsers instantly load live JS/CSS updates without serving cached old builds.
+• Automated Cache Invalidation Script (`index.html`):
+  - Integrated `navigator.serviceWorker.getRegistrations()` loop in `index.html` to trigger `reg.update()` on page load.
+
+
+================================================================================
 VERIFICATION & BUILD OUTPUT:
 ----------------------------
-• Build Command Executed : `npm run build`
-• Build Status          : SUCCESS (Exit Code 0, Built in 770ms)
-• Compiled Chunks       :
-  - dist/assets/waterWorker-D7eQMfTI.js   (0.56 kB)
-  - dist/assets/vendor-icons-UdYP9UjW.js  (19.56 kB)
-  - dist/assets/index-mqGVVjh0.js         (109.54 kB)
-  - dist/assets/vendor-react-7LZO2j0z.js (138.63 kB)
+• Build Command Executed : `npm run build` & `npm run deploy`
+• Build Status          : SUCCESS (Exit Code 0, Built in 812ms)
+• GitHub Repository     : https://github.com/ashitoshbiradar19/bgmi_stra
+• Live Deployment       : https://ashitoshbiradar19.github.io/bgmi_stra/
 ================================================================================
+
