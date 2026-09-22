@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeView, renderScene, STAGE_COLORS, STAGE_RADII } from '../lib/render'
 import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square, CircleDot, Palette } from 'lucide-react'
 import { TEAMS } from '../data/teams'
