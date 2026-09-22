@@ -15,17 +15,20 @@
     <div id="root" class="h-full w-full"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
+      // Clean up any stale service workers or outdated cached assets
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.getRegistrations().then((registrations) => {
-            for (let reg of registrations) {
-              reg.update().catch(() => {})
-            }
-          })
-          if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
-            navigator.serviceWorker.register('./sw.js').catch(() => {})
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (let reg of registrations) {
+            reg.unregister().catch(() => {})
           }
-        })
+        }).catch(() => {})
+      }
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          for (let key of keys) {
+            caches.delete(key).catch(() => {})
+          }
+        }).catch(() => {})
       }
     </script>
   </body>
