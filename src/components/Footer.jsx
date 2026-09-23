@@ -2,7 +2,7 @@ import { Github, Globe, MessageSquare, ExternalLink, ShieldCheck } from 'lucide-
 
 export default function Footer() {
   return (
-    <footer className="shrink-0 border-t border-slate-800/40 bg-[#0B1120]/95 px-3 sm:px-4 py-1.5 sm:py-2.5 backdrop-blur-2xl z-30">
+    <footer className="shrink-0 border-t border-slate-800/40 bg-[#0B1120]/95 px-3 sm:px-4 py-1.5 sm:py-2.5 backdrop-blur-2xl z-30 safe-bottom safe-left safe-right">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-1 sm:gap-2 text-[10px] sm:text-[11px] text-slate-500">
         {/* Left: Brand */}
         <div className="flex items-center gap-2 sm:gap-2.5">

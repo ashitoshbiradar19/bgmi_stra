@@ -686,7 +686,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-[#060910] bg-tactical-grid text-slate-100 font-sans select-none overflow-hidden">
       {/* ================= Header Navbar ================= */}
-      <header className="flex shrink-0 items-center gap-1.5 sm:gap-2 border-b border-slate-800/60 bg-[#0B1120]/95 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-2xl z-30">
+      <header className="flex shrink-0 items-center gap-1.5 sm:gap-2 border-b border-slate-800/60 bg-[#0B1120]/95 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-2xl z-30 safe-top safe-left safe-right">
         {/* Mobile: Sidebar Toggle */}
         {isMobile && (
           <button

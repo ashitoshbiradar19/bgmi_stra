@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BGMI Strategy Board</string>
+    <string name="title_activity_main">BGMI Strategy Board</string>
+    <string name="package_name">com.ashitoshbiradar.bgmistrategy</string>
+    <string name="custom_url_scheme">com.ashitoshbiradar.bgmistrategy</string>
+</resources>

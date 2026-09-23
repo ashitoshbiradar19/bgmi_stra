@@ -308,6 +308,37 @@
   }
 }
 
+/* Safe Area Insets for iOS & Android Notches / Dynamic Islands */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+.safe-top {
+  padding-top: max(0px, env(safe-area-inset-top, 0px));
+}
+
+.safe-bottom {
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-left {
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+}
+
+.safe-right {
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
+}
+
+.safe-all {
+  padding-top: max(0px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
+}
+
 /* Small phones (portrait) */
 @media (max-width: 374px) {
   :root {
