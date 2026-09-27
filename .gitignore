@@ -27,6 +27,11 @@ android/app/build/
 android/.gradle/
 android/build/
 android/local.properties
+
+# IDE project files (Android Studio / IntelliJ)
+android/.idea/
+.idea/
+*.iml
 ios/App/App.xcworkspace/xcuserdata/
 ios/App/Pods/
 ios/DerivedData/
