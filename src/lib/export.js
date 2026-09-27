@@ -140,27 +140,14 @@ export async function renderExportCanvas(o) {
   }
 
   // --- 4. Allocate and paint ---------------------------------------------
-  const canvas = document.createElement('canvas')
-  canvas.width = layout.width
-  canvas.height = layout.height
-  const ctx = canvas.getContext('2d')
+  // Render the map onto an isolated offscreen canvas so that tactical drawing
+  // cannot leak transforms or be affected by frame styling.
+  const mapCanvas = document.createElement('canvas')
+  mapCanvas.width = mapW
+  mapCanvas.height = mapH
+  const mapCtx = mapCanvas.getContext('2d')
 
-  // Frame first, so the map is painted on top of the page background. The
-  // frame only ever paints outside the map rect, so this ordering is purely
-  // cosmetic for the shared gutter.
-  if (template) {
-    drawFrame(ctx, layout, { template, fields, content, logo })
-  } else {
-    ctx.fillStyle = '#070A0F'
-    ctx.fillRect(0, 0, layout.width, layout.height)
-  }
-
-  // The map, translated into its slot. renderScene() is save/restore balanced
-  // and does not touch the transform, so this is safe and is the ONLY place
-  // map pixels are produced.
-  ctx.save()
-  ctx.translate(mapX, mapY)
-  renderScene(ctx, mapW, mapH, {
+  renderScene(mapCtx, mapW, mapH, {
     mapSize: board.mapSize,
     // Hiding the Map layer removes the imagery and every overlay that belongs to
     // it, leaving the tactical drawing on the page background.
@@ -182,7 +169,23 @@ export async function renderExportCanvas(o) {
     viewportWidth: designViewport,
     exportScaleFactor: S,
   })
-  ctx.restore()
+
+  const canvas = document.createElement('canvas')
+  canvas.width = layout.width
+  canvas.height = layout.height
+  const ctx = canvas.getContext('2d')
+
+  // Frame first, so the map is painted on top of the page background.
+  if (template) {
+    drawFrame(ctx, layout, { template, fields, content, logo })
+  } else {
+    ctx.fillStyle = '#070A0F'
+    ctx.fillRect(0, 0, layout.width, layout.height)
+  }
+
+  // Blit the completed map directly into its designated slot.
+  ctx.drawImage(mapCanvas, mapX, mapY)
+  mapCanvas.width = mapCanvas.height = 0
 
   return { canvas, width: layout.width, height: layout.height, layout }
 }
