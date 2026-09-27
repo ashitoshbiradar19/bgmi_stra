@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { Trophy, Users, Target, Shield, Sword, RotateCw, TrendingUp, ChevronRight, ChevronDown, Award, Star, Search, X } from 'lucide-react'
+import { Trophy, Users, Target, Shield, Sword, RotateCw, TrendingUp, ChevronRight, ChevronDown, Award, Star, Search, X, Image as ImageIcon } from 'lucide-react'
 import { TEAM_RECORDS, HEAD_TO_HEAD, PRIZE_MONEY, MVP_AWARDS, STRENGTH_MATRIX } from '../data/teamRecords'
+import { TEAMS } from '../data/teams'
 
 function SectionLabel({ children, className = '' }) {
   return (
@@ -47,6 +48,7 @@ export default function TeamRecords({ onApply }) {
 
   const tabs = [
     { id: 'teams', label: 'Teams' },
+    { id: 'logos', label: 'Only Logos' },
     { id: 'head2head', label: 'H2H' },
     { id: 'records', label: 'Records' },
     { id: 'matrix', label: 'Matrix' },
@@ -63,6 +65,16 @@ export default function TeamRecords({ onApply }) {
         ? Object.values(team.rosters).flatMap(list => list.map(r => `${r.id} ${r.role}`)).join(' ')
         : ''
       const text = `${team.name} ${team.short} ${team.game} ${team.org || ''} ${team.sponsors || ''} ${team.founder || ''} ${rosterPlayers}`.toLowerCase()
+      return tokens.every((token) => text.includes(token))
+    })
+  }, [searchQuery])
+
+  const filteredAllTeams = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return TEAMS
+    const tokens = q.split(/\s+/).filter(Boolean)
+    return TEAMS.filter((t) => {
+      const text = `${t.name} ${t.short} ${t.org || ''} ${t.event || ''} ${t.rank || ''}`.toLowerCase()
       return tokens.every((token) => text.includes(token))
     })
   }, [searchQuery])
@@ -303,6 +315,102 @@ export default function TeamRecords({ onApply }) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ==================== ONLY LOGOS TAB ==================== */}
+      {activeTab === 'logos' && (
+        <div className="space-y-3">
+          <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/5 p-3.5">
+            <div className="flex items-center gap-2 text-xs font-extrabold text-cyan-300">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/15">
+                <ImageIcon size={13} className="text-cyan-400" />
+              </div>
+              Official Team Logos
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+              All 145+ official team logos with team names displayed underneath. Click any logo to place on the strategy board.
+            </p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative">
+            <Search size={13} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search team logos..."
+              className="w-full rounded-xl border border-slate-800/60 bg-slate-950/60 pl-8 pr-8 py-2 text-xs font-medium text-slate-100 placeholder-slate-500 focus:border-cyan-500/50 focus:outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                title="Clear search"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Logos Grid */}
+          <div className="space-y-2">
+            <SectionLabel>All Logos ({filteredAllTeams.length})</SectionLabel>
+            <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-1">
+              {filteredAllTeams.map((team) => (
+                <button
+                  key={team.id}
+                  onClick={() => {
+                    if (onApply) {
+                      onApply(team)
+                    }
+                  }}
+                  className="group flex flex-col items-center justify-between rounded-xl border border-slate-800/50 bg-[#0D1525] p-2.5 transition-all duration-200 hover:border-cyan-400/40 hover:bg-slate-800/40 hover:shadow-[0_0_12px_rgba(6,182,212,0.15)] active:scale-95 text-center"
+                  title={`${team.name} · #${team.rank || '-'}`}
+                >
+                  <span
+                    className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border p-1 text-xs font-black text-white group-hover:scale-105 transition-transform"
+                    style={{
+                      background: `linear-gradient(135deg, ${team.color2 || '#1e293b'}, #0f172a)`,
+                      borderColor: team.color || '#38bdf8',
+                      boxShadow: `0 0 10px ${team.color || '#38bdf8'}33`,
+                    }}
+                  >
+                    {team.logoUrl ? (
+                      <img
+                        src={team.logoUrl.startsWith('/') ? `${import.meta.env.BASE_URL}${team.logoUrl.slice(1)}` : `${import.meta.env.BASE_URL}${team.logoUrl}`}
+                        alt={team.name}
+                        loading="lazy"
+                        draggable={false}
+                        className="h-full w-full object-contain filter drop-shadow"
+                        onError={(e) => {
+                          const raw = team.logoUrl.startsWith('/') ? team.logoUrl.slice(1) : team.logoUrl
+                          const fallback = `./${raw}`
+                          if (!e.currentTarget.dataset.retried) {
+                            e.currentTarget.dataset.retried = 'true'
+                            e.currentTarget.src = fallback
+                          } else {
+                            e.currentTarget.style.display = 'none'
+                          }
+                        }}
+                      />
+                    ) : (
+                      <>{team.short}</>
+                    )}
+                  </span>
+                  <span className="mt-2 w-full truncate text-[10px] font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">
+                    {team.name}
+                  </span>
+                </button>
+              ))}
+              {filteredAllTeams.length === 0 && (
+                <p className="col-span-3 py-6 text-center text-xs text-slate-500">
+                  No logos found matching "{searchQuery}"
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

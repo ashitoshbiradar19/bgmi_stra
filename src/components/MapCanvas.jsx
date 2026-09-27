@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeView, renderScene, STAGE_COLORS, STAGE_RADII } from '../lib/render'
-import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square, CircleDot, Palette } from 'lucide-react'
+import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square, CircleDot, Palette, Image as ImageIcon } from 'lucide-react'
 import { TEAMS } from '../data/teams'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
@@ -1084,6 +1084,92 @@ export default function MapCanvas(props) {
               {filteredTeams.length === 0 && (
                 <p className="col-span-2 rounded-xl border border-slate-800/60 bg-slate-900/40 px-3 py-4 text-center text-[10px] text-slate-500">
                   No teams match "{teamQuery.trim()}"
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Only Logos (Team Name Below) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-cyan-400">
+                <ImageIcon size={11} className="text-cyan-400" />
+                <span>Only Logos ({filteredTeams.length})</span>
+              </div>
+              <span className="text-[9px] font-medium text-slate-500">Logo · Name Below</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1">
+              {filteredTeams.map((t) => (
+                <div
+                  key={`only-logo-${t.id}`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/x-team-id', t.id)
+                    e.dataTransfer.setData('text/plain', t.id)
+                    e.dataTransfer.effectAllowed = 'copy'
+                  }}
+                  onClick={() => {
+                    const v = viewRef.current
+                    const { w, h } = sizeRef.current
+                    const wx = (w / 2 - v.ox) / (v.ppm * v.zoom)
+                    const wy = (h / 2 - v.oy) / (v.ppm * v.zoom)
+                    const anno = {
+                      id: uid(),
+                      type: 'team',
+                      teamId: t.id,
+                      color: t.color || '#facc15',
+                      color2: t.color2 || '#0f172a',
+                      label: t.name,
+                      size: 1,
+                      logoUrl: t.logoUrl || '',
+                      points: [[clamp(wx, 0, mapSize), clamp(wy, 0, mapSize)]],
+                    }
+                    addAnno(anno)
+                    setSelectedId(anno.id)
+                    pushHistory()
+                    requestRender()
+                  }}
+                  className="group flex flex-col items-center justify-between rounded-xl border border-slate-800/50 bg-[#0D1525] p-2 transition-all duration-200 hover:border-cyan-400/30 hover:bg-slate-800/30 active:scale-[0.96] cursor-grab active:cursor-grabbing"
+                  title={`${t.name} · Click to place / Drag to map`}
+                >
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border p-1 text-[11px] font-black text-white group-hover:scale-105 transition-transform"
+                    style={{
+                      background: `linear-gradient(135deg, ${t.color2 || '#1e293b'}, #0f172a)`,
+                      borderColor: t.color || '#38bdf8',
+                      boxShadow: `0 0 8px ${t.color || '#38bdf8'}33`,
+                    }}
+                  >
+                    {t.logoUrl ? (
+                      <img
+                        src={t.logoUrl.startsWith('/') ? `${import.meta.env.BASE_URL}${t.logoUrl.slice(1)}` : `${import.meta.env.BASE_URL}${t.logoUrl}`}
+                        alt={t.name}
+                        loading="lazy"
+                        draggable={false}
+                        className="h-full w-full object-contain filter drop-shadow-sm"
+                        onError={(e) => {
+                          const raw = t.logoUrl.startsWith('/') ? t.logoUrl.slice(1) : t.logoUrl
+                          const fallback = `./${raw}`
+                          if (!e.currentTarget.dataset.retried) {
+                            e.currentTarget.dataset.retried = 'true'
+                            e.currentTarget.src = fallback
+                          } else {
+                            e.currentTarget.style.display = 'none'
+                          }
+                        }}
+                      />
+                    ) : (
+                      <>{t.short}</>
+                    )}
+                  </span>
+                  <div className="mt-1.5 w-full truncate text-center text-[9px] font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">
+                    {t.name}
+                  </div>
+                </div>
+              ))}
+              {filteredTeams.length === 0 && (
+                <p className="col-span-3 rounded-xl border border-slate-800/60 bg-slate-900/40 px-3 py-4 text-center text-[10px] text-slate-500">
+                  No logos match "{teamQuery.trim()}"
                 </p>
               )}
             </div>

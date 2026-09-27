@@ -704,7 +704,9 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     ctx.fill()
     ctx.stroke()
 
-    label(ctx, a.label || `RADIUS ${Math.round(rWorld)}m`, cx, cy - r - 8 * S, a.color, 'rgba(7,10,15,0.92)', 10, S)
+    if (a.label) {
+      label(ctx, a.label, cx, cy - r - 8 * S, a.color, 'rgba(7,10,15,0.92)', 10, S)
+    }
   } else if (a.type === 'text' && P.length > 0) {
     const fs = a.fontSize || 20
     const alpha = typeof a.opacity === 'number' ? Math.max(0.05, Math.min(1, a.opacity)) : 1
