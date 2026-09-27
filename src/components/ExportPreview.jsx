@@ -44,6 +44,10 @@ export default function ExportPreview({
     board.showContours ? 1 : 0,
     board.showBlueZoneMask ? 1 : 0,
     board.mapImage ? 'img' : 'noimg',
+    // Layer visibility/lock/order changes what the preview rasterises, so the
+    // memo key has to move with them or the preview goes stale.
+    JSON.stringify(board.layerDocument?.layers || null),
+    (board.layerDocument?.order || []).join(','),
   ].join('|')
 
   const frameKey = JSON.stringify(frame)

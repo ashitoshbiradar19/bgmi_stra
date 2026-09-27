@@ -48,6 +48,17 @@ import {
   exportStrategyToFile,
   importStrategyFromFile,
 } from './lib/storage'
+import {
+  defaultLayerDocument,
+  normalizeLayerDocument,
+  partitionAnnos,
+  orderAnnos,
+  isLayerLocked,
+  layerOfType,
+  layerFlags,
+  packLayerDocument,
+  unpackLayerDocument,
+} from './lib/layers'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
 
@@ -68,7 +79,9 @@ export default function App() {
   const [activeTool, setActiveTool] = useState('select')
   const [penColor, setPenColor] = useState('#FBBF24')
   const [penWidth, setPenWidth] = useState(3.5)
-  const [layers, setLayers] = useState({ flight: true, brush: true, arrow: true, pin: true, vehicle: true, compound: true, smoke: true })
+  // Layer visibility, lock and z-order. `document` would shadow the global, so
+  // it is named `layerDoc` throughout.
+  const [layerDoc, setLayerDoc] = useState(defaultLayerDocument)
   const [training, setTraining] = useState(null)
   // The map is the product, so on narrower desktop/tablet widths the sidebar
   // starts collapsed and the user reopens it from the rail. Fully reversible.
@@ -241,6 +254,7 @@ export default function App() {
 
         setCircles(loadedCircles)
         setAnnos(loadedAnnos)
+        if (s.L) setLayerDoc(unpackLayerDocument(s.L))
         setMapsData((prev) => ({
           ...prev,
           [s.m || 'erangel']: { circles: loadedCircles, annos: loadedAnnos },
@@ -262,6 +276,7 @@ export default function App() {
         if (auto.mapsData) setMapsData(auto.mapsData)
         if (auto.circles) setCircles(auto.circles)
         if (auto.annos) setAnnos(auto.annos)
+        if (auto.layerDoc) setLayerDoc(normalizeLayerDocument(auto.layerDoc))
       } catch {
         /* ignore auto-save parse error */
       }
@@ -277,6 +292,9 @@ export default function App() {
         penColor,
         circles,
         annos,
+        // Layer visibility/lock/order is part of the board, not a view setting,
+        // so a reload or a shared link restores it too.
+        layerDoc,
         mapsData: {
           ...mapsData,
           [mapId]: { circles, annos },
@@ -284,7 +302,7 @@ export default function App() {
       })
     }, 300)
     return () => clearTimeout(timeout)
-  }, [mapId, gridOn, penColor, circles, annos, mapsData])
+  }, [mapId, gridOn, penColor, circles, annos, mapsData, layerDoc])
 
   useEffect(() => {
     const onKey = (e) => {
@@ -485,17 +503,59 @@ export default function App() {
     showToast('Cleared active tactical map layer')
   }, [mapId, pushHistory, showToast])
 
-  const toggleLayer = useCallback((id) => {
-    setLayers((l) => ({ ...l, [id]: !l[id] }))
+  const setLayerVisible = useCallback((id, visible) => {
+    setLayerDoc((d) => ({
+      ...d,
+      layers: { ...d.layers, [id]: { ...d.layers[id], visible: visible ?? !d.layers[id].visible } },
+    }))
   }, [])
 
-  const visibleAnnos = useMemo(
-    () => annos.filter((a) => layers[a.type] !== false),
-    [annos, layers],
+  const setLayerLocked = useCallback((id, locked) => {
+    setLayerDoc((d) => ({
+      ...d,
+      layers: { ...d.layers, [id]: { ...d.layers[id], locked: locked ?? !d.layers[id].locked } },
+    }))
+  }, [])
+
+  const setLayerDocAll = useCallback((next) => setLayerDoc(normalizeLayerDocument(next)), [])
+
+  // `selectable` is what the pointer may touch. Hiding removes a layer from the
+  // canvas entirely; locking keeps it on the canvas but out of reach. A locked
+  // layer is drawn exactly as it was, which is the whole point of locking.
+  const { visible: visibleAnnos, selectable: selectableAnnos } = useMemo(
+    () => partitionAnnos(annos, layerDoc.layers),
+    [annos, layerDoc.layers],
   )
+
+  // Draw order follows the layer stack, so a layer moved up really does paint on
+  // top of the ones below it.
+  const orderedAnnos = useMemo(
+    () => orderAnnos(visibleAnnos, layerDoc.order),
+    [visibleAnnos, layerDoc.order],
+  )
+
+  // The map layer owns the imagery and the tournament overlays.
+  const mapLayerVisible = layerFlags(layerDoc.layers, 'map').visible
+
+  // Playzone circles are not annotations, so the zones tool cannot be resolved
+  // through layerOfType(). Everything else maps straight through.
+  const toolLayerId = activeTool === 'zones' ? 'zones' : layerOfType(activeTool)
+
+  // A locked layer refuses new objects. The Zones tool also has to stop the
+  // sidebar/canvas from adding circles, so the flag is shared.
+  const activeToolLocked = useMemo(
+    () => isLayerLocked(layerDoc.layers, toolLayerId),
+    [layerDoc.layers, toolLayerId],
+  )
+
+
 
   const addCircleAt = useCallback(
     (stage, x, y) => {
+      if (isLayerLocked(layerDoc.layers, 'zones')) {
+        showToast('Unlock the Zones layer to place a playzone')
+        return
+      }
       setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
       setRedoStack([])
       const c = {
@@ -509,17 +569,18 @@ export default function App() {
       setSelectedId(c.id)
       showToast(`Stage ${stage} placed (${STAGE_RADII[stage - 1]}m radius)`)
     },
-    [mapSize, showToast],
+    [mapSize, showToast, layerDoc.layers],
   )
 
   const removeCircle = useCallback(
     (id) => {
+      if (isLayerLocked(layerDoc.layers, 'zones')) return
       pushHistory()
       setCircles((cs) => cs.filter((c) => c.id !== id))
       setSelectedId(null)
       showToast('Zone removed')
     },
-    [pushHistory, showToast],
+    [pushHistory, showToast, layerDoc.layers],
   )
 
   const handleClearMap = useCallback(() => {
@@ -540,6 +601,32 @@ export default function App() {
       }),
     [circles],
   )
+
+  // Hiding Zones takes the playzone circles off the canvas; locking them leaves
+  // them drawn but puts them out of reach of the pointer. Keeping those two
+  // separate is the whole point of a lock: it protects the work without making
+  // it disappear. Built from `derivedCircles`, not `circles`, so the containment
+  // state survives a hide/restore round trip.
+  const zonesVisible = layerFlags(layerDoc.layers, 'zones').visible
+  const zonesLocked = isLayerLocked(layerDoc.layers, 'zones')
+  const visibleCircles = useMemo(
+    () => (zonesVisible ? derivedCircles : []),
+    [derivedCircles, zonesVisible],
+  )
+  const selectableCircles = useMemo(
+    () => (zonesLocked ? [] : visibleCircles),
+    [visibleCircles, zonesLocked],
+  )
+
+  // Locking or hiding a layer must not strand a selection the user can no longer
+  // touch, or the inspector would keep editing an object the pointer cannot grab.
+  useEffect(() => {
+    if (!selectedId) return
+    const reachable =
+      selectableAnnos.some((a) => a.id === selectedId) ||
+      selectableCircles.some((c) => c.id === selectedId)
+    if (!reachable) setSelectedId(null)
+  }, [selectableAnnos, selectableCircles, selectedId])
 
   const anyBreach = derivedCircles.some((c) => c.violating)
   const breachToastRef = useRef(false)
@@ -564,7 +651,7 @@ export default function App() {
       pushHistory()
       if (circles.length > 0 || annos.length > 0) {
         const backupName = `Backup before ${preset.name} (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
-        const updatedList = saveStrategy(backupName, { mapId, circles, annos })
+        const updatedList = saveStrategy(backupName, { mapId, circles, annos, layerDoc })
         setSavedStrategiesList(updatedList)
       }
       const targetMap = preset.mapId || mapId
@@ -617,6 +704,8 @@ export default function App() {
     const url = buildShareUrl({
       v: 2,
       m: customImage ? 'custom' : mapId,
+      // Layer visibility, lock and z-order travel with the board.
+      L: packLayerDocument(layerDoc),
       g: gridOn ? 1 : 0,
       n: customImage ? customName : undefined,
       c: circles.map(({ stage, x, y, r, color }) => [
@@ -694,7 +783,7 @@ export default function App() {
   // Strategy Saving & Storage Handlers
   const handleSaveCurrentStrategy = () => {
     const title = newStrategyTitle.trim() || `${mapName} Strategy ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    const updated = saveStrategy(title, { mapId, circles, annos })
+    const updated = saveStrategy(title, { mapId, circles, annos, layerDoc })
     setSavedStrategiesList(updated)
     setNewStrategyTitle('')
     showToast(`Saved "${title}" to local boards`)
@@ -710,6 +799,9 @@ export default function App() {
     const restoredAnnos = strat.annos || []
     setCircles(restoredCircles)
     setAnnos(restoredAnnos)
+    // A board saved before layers existed has no layerDoc; normalizing fills in
+    // the defaults rather than leaving the panel out of step with the objects.
+    if (strat.layerDoc) setLayerDoc(normalizeLayerDocument(strat.layerDoc))
     setMapsData((prev) => ({
       ...prev,
       [strat.mapId || mapId]: { circles: restoredCircles, annos: restoredAnnos },
@@ -963,8 +1055,8 @@ export default function App() {
             setActiveTool={setActiveTool}
             penColor={penColor}
             setPenColor={setPenColor}
-            layers={layers}
-            toggleLayer={toggleLayer}
+            layerDoc={layerDoc}
+            setLayerDoc={setLayerDocAll}
             onUndo={onUndo}
             onRedo={onRedo}
             canUndo={!!undoStack.length}
@@ -1009,6 +1101,7 @@ export default function App() {
             updateAnnoFontSize={updateAnnoFontSize}
             updateAnnoWidth={updateAnnoWidth}
             updateAnnoLabel={updateAnnoLabel}
+            updateAnnoField={updateAnnoField}
             removeAnno={removeAnno}
             annos={annos}
           />
@@ -1033,8 +1126,8 @@ export default function App() {
                 setPenColor={setPenColor}
                 penWidth={penWidth}
                 setPenWidth={setPenWidth}
-                layers={layers}
-                toggleLayer={toggleLayer}
+                layerDoc={layerDoc}
+                setLayerDoc={setLayerDocAll}
                 onUndo={onUndo}
                 onRedo={onRedo}
                 canUndo={!!undoStack.length}
@@ -1077,6 +1170,7 @@ export default function App() {
                 updateAnnoFontSize={updateAnnoFontSize}
                 updateAnnoWidth={updateAnnoWidth}
                 updateAnnoLabel={updateAnnoLabel}
+                updateAnnoField={updateAnnoField}
                 removeAnno={removeAnno}
                 annos={annos}
               />
@@ -1086,20 +1180,28 @@ export default function App() {
 
         <main className="relative min-w-0 flex-1">
           <MapCanvas
-            mapImage={mapImage}
+            // Hiding the Map layer removes the imagery and every overlay that
+            // belongs to it, in the editor exactly as it does in the export.
+            mapImage={mapLayerVisible ? mapImage : null}
             mapSize={mapSize}
             mapName={mapName}
             mapId={mapId}
-            showHeatmap={showHeatmap}
-            showContours={showContours}
-            showBlueZoneMask={showBlueZoneMask}
-            gridOn={gridOn}
+            showHeatmap={mapLayerVisible ? showHeatmap : false}
+            showContours={mapLayerVisible ? showContours : false}
+            showBlueZoneMask={mapLayerVisible ? showBlueZoneMask : false}
+            gridOn={mapLayerVisible ? gridOn : false}
             minorGridOn={minorGridOn}
             highlights={highlights}
             circles={derivedCircles}
+            visibleCircles={visibleCircles}
+            selectableCircles={selectableCircles}
             setCircles={setCircles}
-            annos={visibleAnnos}
+            // Drawn in layer order; hit-tested against the selectable subset.
+            annos={orderedAnnos}
             allAnnos={annos}
+            selectableAnnos={selectableAnnos}
+            layerDoc={layerDoc}
+            toolLocked={activeToolLocked}
             addAnno={addAnno}
             updateAnnoPos={updateAnnoPos}
             updateAnno={updateAnno}
@@ -1348,6 +1450,9 @@ export default function App() {
             mapId,
             circles: derivedCircles,
             annos,
+            // The composer resolves visibility from this, so the preview and the
+            // download are guaranteed to agree.
+            layerDoc,
             gridOn,
             showHeatmap,
             showContours,

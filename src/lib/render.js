@@ -648,23 +648,26 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
 
   if (hasLogo) {
     if (!teamLogoCache.has(logoPath)) {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => teamLogoCache.set(logoPath, img)
-      img.onerror = () => {
+      if (typeof Image !== 'undefined') {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.onload = () => teamLogoCache.set(logoPath, img)
+        img.onerror = () => {
+          const raw = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath
+          const fallback = new Image()
+          fallback.onload = () => teamLogoCache.set(logoPath, fallback)
+          fallback.onerror = () => teamLogoCache.set(logoPath, false)
+          fallback.src = `./${raw}`
+        }
         const raw = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath
-        const fallback = new Image()
-        fallback.onload = () => teamLogoCache.set(logoPath, fallback)
-        fallback.onerror = () => teamLogoCache.set(logoPath, false)
-        fallback.src = `./${raw}`
+        const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './'
+        const full = baseUrl.endsWith('/') ? `${baseUrl}${raw}` : `${baseUrl}/${raw}`
+        img.src = full
       }
-      const raw = logoPath.startsWith('/') ? logoPath.slice(1) : logoPath
-      const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || './'
-      const full = baseUrl.endsWith('/') ? `${baseUrl}${raw}` : `${baseUrl}/${raw}`
-      img.src = full
       teamLogoCache.set(logoPath, null)
     }
     if (cached && cached.width > 0) {
+      ctx.save()
       ctx.beginPath()
       roundRectPath(ctx, x - 16 * k, y - 18 * k, 32 * k, 32 * k, 8 * k)
       ctx.clip()

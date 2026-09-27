@@ -27,6 +27,7 @@ const VIEW_H = 800
 function stubContext() {
   const calls = {
     stroke: 0, fill: 0, drawImage: 0, text: [], arcs: 0, transforms: 0,
+    saves: 0, restores: 0,
     // Raw arguments, kept so a test can assert *where* a shape was drawn, not
     // just that something was: an FOV cone pointing the wrong way draws
     // perfectly happily and a bare call count cannot see it.
@@ -56,7 +57,8 @@ function stubContext() {
     rect() {},
     ellipse() {},
     setLineDash() {},
-    save() {}, restore() {},
+    save() { calls.saves++ },
+    restore() { calls.restores++ },
     translate() {}, scale() {},
     rotate(ang) { calls.transforms++; calls.rotations.push(ang) },
     createRadialGradient() { return gradient },
@@ -419,3 +421,75 @@ test('every type still renders once with a rotation applied', () => {
     assert.ok(calls.stroke + calls.fill > 0, `${type} drew nothing when rotated`)
   }
 })
+
+test('renderScene strictly balances canvas save and restore calls across all types', () => {
+  for (const type of Object.keys(SAMPLES)) {
+    const { ctx, calls } = stubContext()
+    renderScene(ctx, VIEW_W, VIEW_H, {
+      mapSize: MAP_SIZE,
+      view: view(),
+      annos: [buildAnno(type)],
+      circles: [],
+      highlights: [],
+    })
+    assert.equal(
+      calls.saves,
+      calls.restores,
+      `${type} had unbalanced save/restore calls: ${calls.saves} saves vs ${calls.restores} restores`
+    )
+  }
+})
+
+test('multiple team logos at cardinal positions maintain stack balance and exact relative coordinates', () => {
+  const positions = [
+    [1000, 1000], // top-left
+    [4000, 1000], // top-center
+    [7000, 1000], // top-right
+    [4000, 4000], // center
+    [1000, 7000], // bottom-left
+    [4000, 7000], // bottom-center
+    [7000, 7000], // bottom-right
+  ]
+  const teamAnnos = positions.map(([x, y], idx) => ({
+    id: `team-${idx}`,
+    type: 'team',
+    teamId: 'soul',
+    label: `Team ${idx}`,
+    points: [[x, y]],
+  }))
+
+  const { ctx, calls } = stubContext()
+  renderScene(ctx, VIEW_W, VIEW_H, {
+    mapSize: MAP_SIZE,
+    view: view(),
+    annos: teamAnnos,
+    circles: [],
+    highlights: [],
+  })
+
+  assert.equal(calls.saves, calls.restores, `Stack was unbalanced: ${calls.saves} saves vs ${calls.restores} restores`)
+})
+
+test('virtual coordinates map to exact proportional positions at 1080p, 2K, and 4K resolutions', () => {
+  const vPos = [5200, 3400]
+  const resolutions = [
+    { w: 1080, h: 1080, name: '1080p' },
+    { w: 2048, h: 2048, name: '2K' },
+    { w: 3840, h: 3840, name: '4K' },
+  ]
+
+  for (const res of resolutions) {
+    const v = computeView(res.w, res.h, MAP_SIZE, 1)
+    const { X, Y } = projector(v)
+    const pxX = X(vPos[0])
+    const pxY = Y(vPos[1])
+
+    // Fraction across the rendered map must be exact: 5200/8000 = 0.65, 3400/8000 = 0.425
+    const fracX = (pxX - v.ox) / (MAP_SIZE * v.ppm * v.zoom)
+    const fracY = (pxY - v.oy) / (MAP_SIZE * v.ppm * v.zoom)
+
+    assert.ok(Math.abs(fracX - 5200 / 8000) < 1e-6, `${res.name} X ratio mismatch`)
+    assert.ok(Math.abs(fracY - 3400 / 8000) < 1e-6, `${res.name} Y ratio mismatch`)
+  }
+})
+

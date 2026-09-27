@@ -332,8 +332,16 @@ logo and must never be mixed with the two:
 
 ### Known export constraints to respect
 
-- Exported boards must include annotations from **all** layers, not just layers
-  currently toggled visible in the editor. Layer visibility is an editor concern.
+- A layer the user has **hidden** is left out of the exported PNG. This is the
+  point of the Layers panel, so it is the opposite of the old "always export
+  everything" rule. `lib/layers.js` is the single place that decision is made
+  (`exportSelection()`), so the live preview and the download cannot disagree.
+- The per-annotation `hidden` flag is still honoured on top of the layer state.
+- Locking is **not** an export concern. A locked layer exports exactly as it
+  looks in the editor; it only stops the pointer from touching it.
+- `Frame / Export` and `Map` are chrome, not annotations. Both resolve to a
+  boolean in `exportSelection()`; the frame never moves the map rectangle, so
+  toggling either leaves every tactical coordinate untouched.
 - Do not hard-code the export pixel dimensions into drawing code. Sizes that should
   scale must go through the `S` factor.
 - Watch browser canvas limits (max dimension ~16384px, max area varies by browser)

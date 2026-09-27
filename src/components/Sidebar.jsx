@@ -3,7 +3,6 @@ import {
   Minus,
   Plane,
   Layers,
-  Eye,
   EyeOff,
   Undo2,
   Redo2,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react'
 import TrainingPanel from './TrainingPanel'
 import ZonePanel from './ZonePanel'
+import LayersPanel from './LayersPanel'
 import TeamRecords from './TeamRecords'
 import { MAPS, PRESET_STRATEGIES } from '../data/maps'
 import { MAP_TOURNAMENT_CONFIGS, analyzeRondoTerrain, checkBridgeCamp } from '../data/tournament'
@@ -25,15 +25,6 @@ import { COLOR_PRESETS } from '../data/colors'
 import { propsFor } from '../lib/annoTypes'
 import SelectionInspector from './PropControls'
 import { TOOLS } from '../data/tools'
-
-const LAYER_TYPES = [
-  { id: 'flight', label: 'Flight paths' },
-  { id: 'brush', label: 'Brush & arrows' },
-  { id: 'pin', label: 'Squad pins' },
-  { id: 'smoke', label: 'Smoke walls' },
-  { id: 'vehicle', label: 'Vehicles' },
-  { id: 'compound', label: 'Compounds' },
-]
 
 function SectionTitle({ children, className = '' }) {
   return <div className={`text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500 ${className}`}>{children}</div>
@@ -90,11 +81,15 @@ export default function Sidebar(props) {
     updateAnnoFontSize,
     updateAnnoWidth,
     updateAnnoLabel,
+    // Used by the selection inspector's generic field patch handler. It was
+    // already called here but never destructured, so editing any inspector field
+    // threw a ReferenceError and silently did nothing.
+    updateAnnoField,
     removeAnno,
     selectedId,
     setSelectedId,
-    layers,
-    toggleLayer,
+    layerDoc,
+    setLayerDoc,
     onUndo,
     onRedo,
     canUndo,
@@ -144,6 +139,7 @@ export default function Sidebar(props) {
 
   const tabs = [
     { id: 'zones', label: 'Zones' },
+    { id: 'layers', label: 'Layers' },
     { id: 'tools', label: 'Tools' },
     { id: 'engine', label: 'Engine' },
     { id: 'presets', label: 'Presets' },
@@ -185,6 +181,15 @@ export default function Sidebar(props) {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-4">
         {tab === 'zones' && <ZonePanel circles={circles} {...zoneProps} />}
+
+        {tab === 'layers' && (
+          <LayersPanel
+            layerDocument={layerDoc}
+            onChange={setLayerDoc}
+            annos={annos}
+            circles={circles}
+          />
+        )}
 
         {tab === 'tools' && (
           <div className="space-y-5">
@@ -272,28 +277,6 @@ export default function Sidebar(props) {
               onSelectColor={selectColorHandler}
               label="Default Tool Color"
             />
-
-            {/* Layer Toggles */}
-            <div className="space-y-2">
-              <SectionTitle>Layer Visibility</SectionTitle>
-              <div className="space-y-1">
-                {LAYER_TYPES.map((l) => (
-                  <button
-                    key={l.id}
-                    onClick={() => toggleLayer(l.id)}
-                    aria-pressed={layers[l.id] !== false}
-                    className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-[11px] font-semibold transition-all duration-150 ${
-                      layers[l.id] !== false
-                        ? 'border-slate-700/60 bg-slate-800/40 text-slate-200'
-                        : 'border-slate-800/40 bg-slate-900/20 text-slate-600 opacity-60'
-                    }`}
-                  >
-                    <span>{l.label}</span>
-                    {layers[l.id] !== false ? <Eye size={13} className="text-amber-400" /> : <EyeOff size={13} />}
-                  </button>
-                ))}
-              </div>
-            </div>
 
             {/* History & Reset */}
             <div className="space-y-2">

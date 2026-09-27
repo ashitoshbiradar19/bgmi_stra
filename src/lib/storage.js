@@ -46,6 +46,9 @@ export function saveStrategy(name, state) {
       mapId: state.mapId || 'erangel',
       circles: state.circles || [],
       annos: state.annos || [],
+      // Visibility, locks and z-order are part of the board, not view settings.
+      // Older entries simply have no layerDoc and fall back to the defaults.
+      layerDoc: state.layerDoc || null,
       createdAt: Date.now(),
     }
     const updated = [newStrategy, ...existing.slice(0, 49)]

@@ -21,6 +21,7 @@ import {
   DESIGN_WIDTH,
 } from './frames'
 import { loadLogoImage } from './brandLogo'
+import { exportSelection } from './layers'
 
 /**
  * @typedef {object} ExportBoard
@@ -57,6 +58,8 @@ import { loadLogoImage } from './brandLogo'
  * @param {object} [o.view]        editor view, required for mode 'view'
  * @param {number} [o.viewportW]   editor viewport width, mode 'view'
  * @param {number} [o.viewportH]   editor viewport height, mode 'view'
+ * @param {object} [o.board.layerDocument] layer visibility/lock/order, from
+ *        `lib/layers.js`. Hidden layers are excluded from the export.
  * @param {number} [o.outputWidth] total image width; defaults to 2048
  * @param {number} [o.t]           timestamp for deterministic output
  * @returns {{canvas: HTMLCanvasElement, width: number, height: number, layout: object}}
@@ -73,7 +76,15 @@ export async function renderExportCanvas(o) {
     t = 0,
   } = o
 
-  const template = frame ? getTemplate(frame.templateId) : null
+  // `layerDocument` decides what actually reaches the PNG. This is the one place
+  // that decision is made, so the preview and the download cannot disagree.
+  const sel = exportSelection(board.annos, board.circles, board.layerDocument)
+
+  // Hiding the Frame / Export layer means "give me the bare map", which is
+  // exactly what a null template already produces. The map rectangle is
+  // computed from the template below, and it is identical either way.
+  const frameWanted = sel.frameVisible
+  const template = frame && frameWanted ? getTemplate(frame.templateId) : null
   const fields = frame?.fields || { header: {}, footer: {} }
   const content = normalizeContent(frame?.content)
 
@@ -151,19 +162,21 @@ export async function renderExportCanvas(o) {
   ctx.translate(mapX, mapY)
   renderScene(ctx, mapW, mapH, {
     mapSize: board.mapSize,
-    image: board.mapImage,
-    gridOn: board.gridOn,
+    // Hiding the Map layer removes the imagery and every overlay that belongs to
+    // it, leaving the tactical drawing on the page background.
+    image: sel.mapVisible ? board.mapImage : null,
+    gridOn: sel.mapVisible ? board.gridOn : false,
     minorGridOn: false,
-    circles: board.circles,
-    // All layers, not just the ones currently toggled visible — layer
-    // visibility is an editor concern (AGENTS.md export rules).
-    annos: board.annos.filter((a) => !a.hidden),
+    circles: sel.circles,
+    // Hidden layers and the per-annotation `hidden` flag are both honoured, and
+    // the survivors are stacked in layer order.
+    annos: sel.annos,
     highlights: [],
     selectedId: null,
     mapId: board.mapId || 'erangel',
-    showHeatmap: board.showHeatmap ?? true,
-    showContours: board.showContours ?? false,
-    showBlueZoneMask: board.showBlueZoneMask ?? true,
+    showHeatmap: sel.mapVisible ? board.showHeatmap ?? true : false,
+    showContours: sel.mapVisible ? board.showContours ?? false : false,
+    showBlueZoneMask: sel.mapVisible ? board.showBlueZoneMask ?? true : false,
     view: mapView,
     t,
     viewportWidth: designViewport,

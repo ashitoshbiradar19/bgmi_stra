@@ -82,6 +82,10 @@ export default function MapCanvas(props) {
     setCircles,
     annos,
     allAnnos,
+    selectableAnnos,
+    visibleCircles,
+    selectableCircles,
+    toolLocked,
     addAnno,
     updateAnnoPos,
     updateAnno,
@@ -214,8 +218,9 @@ export default function MapCanvas(props) {
           image: p.mapImage,
           gridOn: p.gridOn,
           minorGridOn: p.minorGridOn,
-          circles: p.circles,
-          annos: p.allAnnos || p.annos,
+          circles: p.visibleCircles ?? p.circles,
+          // Already filtered to visible layers and sorted into layer order by App.
+          annos: p.annos,
           highlights: p.highlights,
           selectedId: p.selectedId,
           mapId: p.mapId || 'erangel',
@@ -238,7 +243,7 @@ export default function MapCanvas(props) {
           const Z = v.ppm * v.zoom
           const X = (m) => m * Z + v.ox
           const Y = (m) => m * Z + v.oy
-          const list = p.allAnnos || p.annos || []
+          const list = p.annos || []
           const sel = list.find((a) => a && a.id === p.selectedId)
           // While a grip is being dragged the other grips are hidden: they sit
           // under the cursor and would flicker as the box changes size.
@@ -293,6 +298,9 @@ export default function MapCanvas(props) {
           mapId: p.mapId || 'erangel',
           circles: p.circles,
           annos: p.allAnnos || p.annos,
+          // The composer is the single place that decides what a hidden layer
+          // means, so the download and the live preview agree by construction.
+          layerDocument: p.layerDoc,
           gridOn: p.gridOn,
           showHeatmap: p.showHeatmap,
           showContours: p.showContours,
@@ -340,9 +348,9 @@ export default function MapCanvas(props) {
   const selectedAnnoRef = useRef(null)
   selectedAnnoRef.current = useMemo(() => {
     const p = propsRef.current
-    const list = p.allAnnos || p.annos || []
+    const list = p.selectableAnnos || p.annos || []
     return p.selectedId ? list.find((a) => a && a.id === p.selectedId) || null : null
-  }, [props.selectedId, props.annos, props.allAnnos])
+  }, [props.selectedId, props.selectableAnnos, props.annos])
 
   const hitCircle = (wx, wy, cs) => {
     const v = viewRef.current
@@ -454,7 +462,29 @@ export default function MapCanvas(props) {
     if (pointersRef.current.size > 2) return
 
     const [wx, wy] = toWorld(e)
-    const { activeTool: tool, circles: cs, annos: as, penColor: pc, addAnno: add } = propsRef.current
+    // `as` is every annotation and is used only for auto-labelling, so labels
+    // stay sequential across hidden layers. `touch` is the subset the pointer may
+    // actually grab: a hidden layer is not on the canvas at all, and a locked
+    // layer is on the canvas but untouchable.
+    const {
+      activeTool: tool,
+      circles: cs,
+      annos: as,
+      selectableAnnos: touch,
+      visibleCircles: visCs,
+      selectableCircles: selCs,
+      penColor: pc,
+      addAnno: add,
+    } = propsRef.current
+    // Drawing uses what is visible; hitting uses what is also grabbable, so a
+    // locked playzone is still on the map but cannot be caught by the pointer.
+    const hitCs = selCs || visCs || cs
+
+    // Locking a layer has to stop new objects landing in it, not just stop the
+    // existing ones moving. Pan and zoom still work, so the map never feels
+    // stuck; only the drawing tools go quiet. Select and eraser are exempt
+    // because the selectable list already keeps them off locked objects.
+    if (toolLocked && tool !== 'select' && tool !== 'eraser') return
 
     if (tool === 'select') {
       // Grips win over the object underneath them. Checked FIRST, before the
@@ -491,7 +521,7 @@ export default function MapCanvas(props) {
         }
       }
 
-      const hitPt = hitPointAnno(wx, wy, as)
+      const hitPt = hitPointAnno(wx, wy, touch)
       if (hitPt) {
         propsRef.current.setSelectedId(hitPt.id)
         if (hitPt.type === 'vehicle') {
@@ -511,7 +541,7 @@ export default function MapCanvas(props) {
         return
       }
 
-      const hitLn = hitLineAnno(wx, wy, as)
+      const hitLn = hitLineAnno(wx, wy, touch)
       if (hitLn) {
         propsRef.current.setSelectedId(hitLn.id)
         interRef.current = {
@@ -525,7 +555,7 @@ export default function MapCanvas(props) {
         return
       }
 
-      const comp = hitCompound(wx, wy, as)
+      const comp = hitCompound(wx, wy, touch)
       if (comp) {
         propsRef.current.setSelectedId(comp.id)
         interRef.current = {
@@ -539,7 +569,7 @@ export default function MapCanvas(props) {
         return
       }
 
-      const hitCirc = hitCircleAnno(wx, wy, as)
+      const hitCirc = hitCircleAnno(wx, wy, touch)
       if (hitCirc) {
         propsRef.current.setSelectedId(hitCirc.id)
         interRef.current = {
@@ -553,7 +583,7 @@ export default function MapCanvas(props) {
         return
       }
 
-      const c = hitCircle(wx, wy, cs)
+      const c = hitCircle(wx, wy, hitCs)
       if (c) {
         propsRef.current.setSelectedId(c.id)
         interRef.current = { mode: 'drag-circle', id: c.id, dx: wx - c.x, dy: wy - c.y, moved: false }
@@ -575,19 +605,19 @@ export default function MapCanvas(props) {
       const rmAnno = propsRef.current.removeAnno
       const rmCircle = propsRef.current.removeCircle
 
-      const ePt = hitPointAnno(wx, wy, as)
+      const ePt = hitPointAnno(wx, wy, touch)
       if (ePt) { rmAnno?.(ePt.id); requestRender(); return }
 
-      const eLn = hitLineAnno(wx, wy, as)
+      const eLn = hitLineAnno(wx, wy, touch)
       if (eLn) { rmAnno?.(eLn.id); requestRender(); return }
 
-      const eComp = hitCompound(wx, wy, as)
+      const eComp = hitCompound(wx, wy, touch)
       if (eComp) { rmAnno?.(eComp.id); requestRender(); return }
 
-      const eCirc = hitCircleAnno(wx, wy, as)
+      const eCirc = hitCircleAnno(wx, wy, touch)
       if (eCirc) { rmAnno?.(eCirc.id); requestRender(); return }
 
-      const eZone = hitCircle(wx, wy, cs)
+      const eZone = hitCircle(wx, wy, hitCs)
       if (eZone) { rmCircle?.(eZone.id); requestRender(); return }
 
       return
@@ -609,7 +639,7 @@ export default function MapCanvas(props) {
     }
 
     if (tool === 'text') {
-      const hitPt = hitPointAnno(wx, wy, as)
+      const hitPt = hitPointAnno(wx, wy, touch)
       if (hitPt && hitPt.type === 'text') {
         propsRef.current.setSelectedId(hitPt.id)
         setTextModal({
@@ -993,9 +1023,11 @@ export default function MapCanvas(props) {
     requestRender()
   }
 
-  const targetAnnos = allAnnos || annos
+  const targetAnnos = selectableAnnos || annos
   const selectedAnno = targetAnnos.find((a) => a.id === selectedId)
-  const selectedCircle = circles.find((c) => c.id === selectedId)
+  const selectedCircle = (selectableCircles || visibleCircles || circles).find(
+    (c) => c.id === selectedId,
+  )
 
   const cursor =
     activeTool === 'select' ? 'grab' : activeTool === 'flight' || activeTool === 'flight1' || activeTool === 'flight2' ? 'crosshair' : 'crosshair'
