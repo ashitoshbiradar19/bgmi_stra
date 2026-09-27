@@ -47,6 +47,10 @@ export default function MapCanvas(props) {
     updateAnnoPos,
     updateAnno,
     updateAnnoField,
+    updateAnnoRadius,
+    updateCircleRadius,
+    updateCircleColor,
+    removeCircle,
     pushHistory,
     selectedId,
     setSelectedId,
@@ -804,6 +808,8 @@ export default function MapCanvas(props) {
     }
     const teamId = e.dataTransfer.getData('text/x-team-id') || e.dataTransfer.getData('text/plain')
     if (teamId) {
+      const showNameData = e.dataTransfer.getData('text/x-show-name')
+      const showName = showNameData === 'false' ? false : (showNameData === 'true' ? true : undefined)
       const [wx, wy] = toWorld(e)
       const team = TEAMS.find((t) => t.id === teamId)
       const anno = {
@@ -814,6 +820,7 @@ export default function MapCanvas(props) {
         color2: team ? team.color2 : '#0f172a',
         label: team ? team.name : teamId,
         size: 1,
+        showName: showName !== undefined ? showName : true,
         logoUrl: team ? team.logoUrl : '',
         points: [[clamp(wx, 0, mapSize), clamp(wy, 0, mapSize)]],
       }
@@ -1105,6 +1112,7 @@ export default function MapCanvas(props) {
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/x-team-id', t.id)
+                    e.dataTransfer.setData('text/x-show-name', 'false')
                     e.dataTransfer.setData('text/plain', t.id)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
@@ -1121,6 +1129,7 @@ export default function MapCanvas(props) {
                       color2: t.color2 || '#0f172a',
                       label: t.name,
                       size: 1,
+                      showName: false,
                       logoUrl: t.logoUrl || '',
                       points: [[clamp(wx, 0, mapSize), clamp(wy, 0, mapSize)]],
                     }
@@ -1360,8 +1369,42 @@ export default function MapCanvas(props) {
                         placeholder="Paste any image URL (PNG/JPG/WebP)..."
                       />
                     </div>
+                    {/* Team Name Display Toggle */}
+                    <div className="space-y-1.5">
+                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Team Name Display</span>
+                      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800/50 bg-slate-950/50 p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateAnnoField && updateAnnoField(selectedAnno.id, { showName: true })
+                            requestRender()
+                          }}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
+                            selectedAnno.showName !== false
+                              ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-sm'
+                              : 'border border-transparent text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          Show Name
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateAnnoField && updateAnnoField(selectedAnno.id, { showName: false })
+                            requestRender()
+                          }}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
+                            selectedAnno.showName === false
+                              ? 'border border-cyan-400/40 bg-cyan-400/15 text-cyan-300 shadow-sm'
+                              : 'border border-transparent text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          Only Logo (Hide Name)
+                        </button>
+                      </div>
+                    </div>
                     <p className="text-[9px] leading-relaxed text-slate-600">
-                      Paste any public logo image URL to display the real logo (cross-origin images load best). Drag on map to reposition. Delete to remove.
+                      Paste any public logo image URL to display the real logo. Drag on map to reposition. Delete to remove.
                     </p>
                   </div>
                 )}
@@ -1482,6 +1525,94 @@ export default function MapCanvas(props) {
                           </button>
                         ))}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedAnno.type === 'circle' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                          Circle Radius / Size
+                        </span>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          r = {Math.round(
+                            typeof selectedAnno.r === 'number' && selectedAnno.r > 0
+                              ? selectedAnno.r
+                              : (selectedAnno.points?.[1]
+                                ? Math.hypot(
+                                    selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                    selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                                  )
+                                : 50),
+                          )}m
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={2500}
+                        step={10}
+                        value={Math.round(
+                          typeof selectedAnno.r === 'number' && selectedAnno.r > 0
+                            ? selectedAnno.r
+                            : (selectedAnno.points?.[1]
+                              ? Math.hypot(
+                                  selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                  selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                                )
+                              : 50),
+                        )}
+                        onChange={(e) => {
+                          const r = parseInt(e.target.value, 10)
+                          if (updateAnnoRadius) {
+                            updateAnnoRadius(selectedAnno.id, r)
+                          } else if (updateAnnoField) {
+                            updateAnnoField(selectedAnno.id, { r })
+                          }
+                          requestRender()
+                        }}
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                      <div className="grid grid-cols-5 gap-1">
+                        {[50, 150, 300, 500, 1000].map((sz) => (
+                          <button
+                            key={sz}
+                            onClick={() => {
+                              if (updateAnnoRadius) {
+                                updateAnnoRadius(selectedAnno.id, sz)
+                              } else if (updateAnnoField) {
+                                updateAnnoField(selectedAnno.id, { r: sz })
+                              }
+                              requestRender()
+                            }}
+                            className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
+                          >
+                            {sz}m
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Thickness</span>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {selectedAnno.width || 3.5}px
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={2}
+                        max={30}
+                        step={1}
+                        value={selectedAnno.width || 3.5}
+                        onChange={(e) =>
+                          updateAnnoWidth && updateAnnoWidth(selectedAnno.id, parseInt(e.target.value, 10))
+                        }
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
                     </div>
                   </div>
                 )}

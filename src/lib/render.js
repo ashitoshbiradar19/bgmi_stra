@@ -544,27 +544,28 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
     drawEmblem(ctx, x, y, k, team || { id: a.teamId, name: a.label, short: '', color, color2 })
   }
 
-  // Team name label — k already includes export scale factor (S),
-  // so no additional S multiplication is needed.
-  const name = a.label || (team ? team.name : 'Team')
-  const labelFontPx = Math.max(8 * k, Math.round(11 * k))
-  ctx.font = `800 ${labelFontPx}px Inter, sans-serif`
-  const tw = ctx.measureText(name).width
-  const padX = 7 * k
-  const gapY = 3 * k
-  const labelH = labelFontPx + 6 * k
-  const labelY = y + 18 * k + gapY
-  ctx.fillStyle = 'rgba(7,10,15,0.92)'
-  ctx.strokeStyle = color
-  ctx.lineWidth = Math.max(1.0, 1.0 * k)
-  ctx.beginPath()
-  roundRectPath(ctx, x - tw / 2 - padX, labelY, tw + padX * 2, labelH, 5 * k)
-  ctx.fill()
-  ctx.stroke()
-  ctx.fillStyle = color
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(name, x, labelY + labelH / 2)
+  // Team name label below logo (only if showName is not explicitly false)
+  if (a.showName !== false) {
+    const name = a.label || (team ? team.name : 'Team')
+    const labelFontPx = Math.max(8 * k, Math.round(11 * k))
+    ctx.font = `800 ${labelFontPx}px Inter, sans-serif`
+    const tw = ctx.measureText(name).width
+    const padX = 7 * k
+    const gapY = 3 * k
+    const labelH = labelFontPx + 6 * k
+    const labelY = y + 18 * k + gapY
+    ctx.fillStyle = 'rgba(7,10,15,0.92)'
+    ctx.strokeStyle = color
+    ctx.lineWidth = Math.max(1.0, 1.0 * k)
+    ctx.beginPath()
+    roundRectPath(ctx, x - tw / 2 - padX, labelY, tw + padX * 2, labelH, 5 * k)
+    ctx.fill()
+    ctx.stroke()
+    ctx.fillStyle = color
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(name, x, labelY + labelH / 2)
+  }
 
   ctx.restore()
 }
@@ -685,7 +686,9 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     roundRectPath(ctx, x, y, w, h, 4 * S)
     ctx.fill()
     ctx.stroke()
-    label(ctx, a.label || 'COMPOUND DEFENSE', x + w / 2, y + h / 2, a.color, 'rgba(7,10,15,0.92)', 10, S)
+    if (a.label) {
+      label(ctx, a.label, x + w / 2, y + h / 2, a.color, 'rgba(7,10,15,0.92)', 10, S)
+    }
   } else if (a.type === 'circle' && P.length > 0) {
     const p0 = a.points[0]
     const p1 = a.points[1] || a.points[0]
