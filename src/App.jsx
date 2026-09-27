@@ -27,13 +27,17 @@ import {
   Eraser,
 } from 'lucide-react'
 import MapCanvas from './components/MapCanvas'
+import ExportDialog from './components/ExportDialog'
 import Sidebar from './components/Sidebar'
+import Toolbar from './components/Toolbar'
 import Footer from './components/Footer'
 import { MAPS, MAP_LIST } from './data/maps'
 import { generateMap } from './lib/mapGen'
 import { STAGE_RADII, containmentViolation } from './lib/render'
 import { buildShareUrl, readShareFromUrl } from './lib/share'
+import { shouldRecordFieldEdit, NO_FIELD_RUN } from './lib/history'
 import { getTeam } from './data/teams'
+import { TOOLS } from './data/tools'
 import {
   getAutoSaveState,
   saveAutoSaveState,
@@ -66,18 +70,25 @@ export default function App() {
   const [penWidth, setPenWidth] = useState(3.5)
   const [layers, setLayers] = useState({ flight: true, brush: true, arrow: true, pin: true, vehicle: true, compound: true, smoke: true })
   const [training, setTraining] = useState(null)
-  const [collapsed, setCollapsed] = useState(false)
+  // The map is the product, so on narrower desktop/tablet widths the sidebar
+  // starts collapsed and the user reopens it from the rail. Fully reversible.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 1280,
+  )
   const [tab, setTab] = useState('zones')
   const [toast, setToast] = useState(null)
   const [undoStack, setUndoStack] = useState([])
   const [redoStack, setRedoStack] = useState([])
+
+  /**
+   * Identifies the most recent field edit, so a burst of events on the same
+   * field can share one undo entry. See `beginFieldEdit` below.
+   */
+  const lastFieldEditRef = useRef(NO_FIELD_RUN)
   const [mapMenuOpen, setMapMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [savedModalOpen, setSavedModalOpen] = useState(false)
   const [exportModalOpen, setExportModalOpen] = useState(false)
-  const [analystName, setAnalystName] = useState('Ashitosh S. Biradar')
-  const [exportDesc, setExportDesc] = useState('')
-  const [exportMode, setExportMode] = useState('square')
   const [newStrategyTitle, setNewStrategyTitle] = useState('')
   const [savedStrategiesList, setSavedStrategiesList] = useState(() => getSavedStrategies())
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
@@ -85,6 +96,9 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(false)
 
   const exportRef = useRef(() => {})
+  // MapCanvas writes its current viewport here so the export dialog's live
+  // preview can reproduce "current screen view" mode exactly.
+  const viewInfoRef = useRef(null)
   const fileRef = useRef(null)
   const importFileRef = useRef(null)
   const mapMenuRef = useRef(null)
@@ -136,6 +150,9 @@ export default function App() {
   const pushHistory = useCallback(() => {
     setUndoStack((s) => [...s.slice(-49), { circles, annos }])
     setRedoStack([])
+    // A discrete action ends any slider run, so the next field edit records
+    // its own undo entry even if it lands within the coalesce window.
+    lastFieldEditRef.current = NO_FIELD_RUN
   }, [circles, annos])
 
   const snapshotNow = () => ({ circles, annos })
@@ -310,6 +327,24 @@ export default function App() {
   const snapshotNowRef = useRef(snapshotNow)
   snapshotNowRef.current = snapshotNow
 
+  /**
+   * Record an undo entry for a field edit — but only the first event of a run.
+   *
+   * A slider, stepper or text input fires a change event on every pixel, step or
+   * keystroke, so pushing history per event doesn't just make undo tedious: with
+   * a bounded stack, one drag evicts every action taken before it and undo
+   * appears to have forgotten the earlier work. The coalescing rule itself lives
+   * in `lib/history.js` so it can be tested without timers.
+   */
+  const beginFieldEdit = useCallback((id, keys) => {
+    const { record, run } = shouldRecordFieldEdit(lastFieldEditRef.current, id, keys, Date.now())
+    lastFieldEditRef.current = run
+    if (!record) return false
+    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
+    setRedoStack([])
+    return true
+  }, [])
+
   const addAnno = useCallback((a) => setAnnos((as) => [...as, a]), [])
 
   const updateCircleColor = useCallback((id, color) => {
@@ -324,19 +359,21 @@ export default function App() {
     setCircles((cs) => cs.map((c) => (c.id === id ? { ...c, r: Math.max(10, r) } : c)))
   }, [])
 
-  const updateAnnoRadius = useCallback((id, r) => {
-    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
-    setRedoStack([])
-    setAnnos((as) =>
-      as.map((a) => {
-        if (a.id === id) {
-          const p0 = a.points?.[0] || [4000, 4000]
-          return { ...a, r, points: [p0, [p0[0] + r, p0[1]]] }
-        }
-        return a
-      }),
-    )
-  }, [])
+  const updateAnnoRadius = useCallback(
+    (id, r) => {
+      beginFieldEdit(id, 'r')
+      setAnnos((as) =>
+        as.map((a) => {
+          if (a.id === id) {
+            const p0 = a.points?.[0] || [4000, 4000]
+            return { ...a, r, points: [p0, [p0[0] + r, p0[1]]] }
+          }
+          return a
+        }),
+      )
+    },
+    [beginFieldEdit],
+  )
 
   const handleColorSelect = useCallback(
     (color) => {
@@ -365,23 +402,29 @@ export default function App() {
     [selectedId],
   )
 
-  const updateAnnoFontSize = useCallback((id, fontSize) => {
-    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
-    setRedoStack([])
-    setAnnos((as) => as.map((a) => (a.id === id ? { ...a, fontSize } : a)))
-  }, [])
+  const updateAnnoFontSize = useCallback(
+    (id, fontSize) => {
+      beginFieldEdit(id, 'fontSize')
+      setAnnos((as) => as.map((a) => (a.id === id ? { ...a, fontSize } : a)))
+    },
+    [beginFieldEdit],
+  )
 
-  const updateAnnoWidth = useCallback((id, width) => {
-    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
-    setRedoStack([])
-    setAnnos((as) => as.map((a) => (a.id === id ? { ...a, width } : a)))
-  }, [])
+  const updateAnnoWidth = useCallback(
+    (id, width) => {
+      beginFieldEdit(id, 'width')
+      setAnnos((as) => as.map((a) => (a.id === id ? { ...a, width } : a)))
+    },
+    [beginFieldEdit],
+  )
 
-  const updateAnnoLabel = useCallback((id, label) => {
-    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
-    setRedoStack([])
-    setAnnos((as) => as.map((a) => (a.id === id ? { ...a, label } : a)))
-  }, [])
+  const updateAnnoLabel = useCallback(
+    (id, label) => {
+      beginFieldEdit(id, 'label')
+      setAnnos((as) => as.map((a) => (a.id === id ? { ...a, label } : a)))
+    },
+    [beginFieldEdit],
+  )
 
   const removeAnno = useCallback(
     (id) => {
@@ -403,10 +446,27 @@ export default function App() {
     [],
   )
 
-  const updateAnnoField = useCallback((id, patch) => {
-    setUndoStack((s) => [...s.slice(-49), snapshotNowRef.current()])
-    setRedoStack([])
-    setAnnos((as) => as.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+  const updateAnnoField = useCallback(
+    (id, patch) => {
+      beginFieldEdit(id, Object.keys(patch).join())
+      setAnnos((as) => as.map((a) => (a.id === id ? { ...a, ...patch } : a)))
+    },
+    [beginFieldEdit],
+  )
+
+  /**
+   * Replace a whole annotation, WITHOUT recording history.
+   *
+   * `updateAnnoField` pushes an undo entry per call, which is right for a
+   * button or a single-shot edit but catastrophic for a drag: moving a slider
+   * or resizing an object fires this on every pointer move, and one drag would
+   * push hundreds of entries you then have to undo one at a time. The gesture
+   * handlers in `MapCanvas` therefore use this during the drag and call
+   * `pushHistory()` exactly once on pointer-up, which is the same contract the
+   * existing move modes already use.
+   */
+  const replaceAnno = useCallback((id, next) => {
+    setAnnos((as) => as.map((a) => (a.id === id ? next : a)))
   }, [])
 
   const toggleVehicle = useCallback((id) => {
@@ -687,7 +747,7 @@ export default function App() {
   return (
     <div className="flex h-full flex-col bg-[#060910] bg-tactical-grid text-slate-100 font-sans select-none overflow-hidden">
       {/* ================= Header Navbar ================= */}
-      <header className="flex shrink-0 items-center gap-1.5 sm:gap-2 border-b border-slate-800/60 bg-[#0B1120]/95 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-2xl z-30 safe-top safe-left safe-right">
+      <header className="order-1 z-30 flex shrink-0 items-center gap-1.5 sm:gap-2 border-b border-slate-800/60 bg-[#0B1120]/95 px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-xl safe-top safe-left safe-right">
         {/* Mobile: Sidebar Toggle */}
         {isMobile && (
           <button
@@ -794,34 +854,15 @@ export default function App() {
           ))}
         </div>
 
-        {/* Actions Bar */}
+        {/* Actions Bar — Undo/Redo now live in the toolbar, where they sit
+            next to the tools they affect. */}
         <div className="ml-auto flex items-center gap-1">
-          {/* Undo/Redo - icon only on mobile */}
-          <button
-            onClick={onUndo}
-            disabled={!undoStack.length}
-            title="Undo (Ctrl+Z)"
-            aria-label="Undo"
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
-          >
-            <Undo2 size={14} />
-          </button>
-          <button
-            onClick={onRedo}
-            disabled={!redoStack.length}
-            title="Redo (Ctrl+Shift+Z)"
-            aria-label="Redo"
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 enabled:hover:border-slate-600 enabled:hover:text-slate-200 disabled:opacity-25 active:scale-95 min-h-[44px] min-w-[44px]"
-          >
-            <Redo2 size={14} />
-          </button>
-
           {/* Clear Map */}
           <button
             onClick={handleClearMap}
-            title="Clear all zones, logos and annotations (Blank redboard)"
+            title="Clear all zones, logos and annotations"
             aria-label="Clear Map"
-            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl border border-red-500/25 bg-red-500/5 text-red-400 transition-all duration-200 hover:bg-red-500/15 hover:border-red-500/40 active:scale-95 min-h-[44px] min-w-[44px]"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg border border-red-500/25 bg-red-500/5 text-red-400 transition-colors duration-150 hover:bg-red-500/15 hover:border-red-500/40 min-h-[44px] min-w-[44px]"
           >
             <Eraser size={15} />
           </button>
@@ -889,14 +930,28 @@ export default function App() {
 
       {/* ================= Warning Banner ================= */}
       {anyBreach && (
-        <div className="flex shrink-0 items-center justify-center gap-2.5 border-b border-red-500/50 bg-red-500/10 px-4 py-2.5 text-[11px] font-bold text-red-300">
+        <div className="order-2 flex shrink-0 items-center justify-center gap-2.5 border-b border-red-500/50 bg-red-500/10 px-4 py-2.5 text-[11px] font-bold text-red-300">
           <ShieldAlert size={15} className="text-red-400" />
           <span>Invalid Zone Boundary — Stage N+1 extends outside Stage N!</span>
         </div>
       )}
 
+      {/* ================= Tool Rail =================
+          Single element, repositioned purely with flex `order`: directly under
+          the header from md up, docked above the footer on phones. */}
+      <Toolbar
+        className="order-4 md:order-2"
+        activeTool={activeTool}
+        setActiveTool={setActiveTool}
+        penColor={penColor}
+        canUndo={!!undoStack.length}
+        canRedo={!!redoStack.length}
+        handleUndo={onUndo}
+        handleRedo={onRedo}
+      />
+
       {/* ================= Main Content Body ================= */}
-      <div className="flex min-h-0 flex-1 relative">
+      <div className="order-3 flex min-h-0 flex-1 relative md:order-4">
         {/* Desktop: Sidebar always visible */}
         {!isMobile && (
           <Sidebar
@@ -1049,6 +1104,7 @@ export default function App() {
             updateAnnoPos={updateAnnoPos}
             updateAnno={updateAnno}
             updateAnnoField={updateAnnoField}
+            replaceAnno={replaceAnno}
             toggleVehicle={toggleVehicle}
             pushHistory={pushHistory}
             selectedId={selectedId}
@@ -1069,6 +1125,7 @@ export default function App() {
             updateCircleRadius={updateCircleRadius}
             updateAnnoRadius={updateAnnoRadius}
             exportRef={exportRef}
+            viewInfoRef={viewInfoRef}
             addCircleAt={addCircleAt}
             isMobile={isMobile}
             mobilePanelOpen={mobilePanelOpen}
@@ -1078,7 +1135,9 @@ export default function App() {
       </div>
 
       {/* ================= Footer Bar ================= */}
-      <Footer />
+      <div className="order-5">
+        <Footer />
+      </div>
 
       {/* ================= Saved Strategy Manager Modal ================= */}
       {savedModalOpen && (
@@ -1248,15 +1307,9 @@ export default function App() {
             <div className="p-5">
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  ['V', 'Select / Pan Mode'],
-                  ['P', 'Drop Pin'],
-                  ['B', 'Freehand Brush'],
-                  ['L', 'Straight Line'],
-                  ['A', 'Attack Arrow'],
-                  ['F', 'Flight Path'],
-                  ['G', 'Vehicle Toggle'],
-                  ['C', 'Compound Bounds'],
-                  ['T', 'Text Note'],
+                  // Generated from the tool registry so this table can never
+                  // drift out of sync with the toolbar or the key handler.
+                  ...TOOLS.map((t) => [t.key, t.desc]),
                   ['Esc', 'Cancel / Reset'],
                   ['Ctrl+Z', 'Undo'],
                   ['Ctrl+Y', 'Redo'],
@@ -1282,113 +1335,25 @@ export default function App() {
 
       {/* Export Options Modal */}
       {exportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-          <div className="w-full max-w-md space-y-4 rounded-2xl border border-amber-400/30 bg-[#0B1220] p-5 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
-            <div className="flex items-center justify-between border-b border-slate-800/60 pb-3">
-              <div className="flex items-center gap-2.5 text-sm font-extrabold text-white">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/15">
-                  <Download size={16} className="text-amber-400" />
-                </div>
-                <span>Export High-Res Strategy Map</span>
-              </div>
-              <button
-                onClick={() => setExportModalOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <X size={15} />
-              </button>
-            </div>
-
-            {/* Format Preview Badge */}
-            <div className="flex items-center justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3.5 py-2.5">
-              <div className="flex items-center gap-2 text-xs font-bold text-cyan-300">
-                <Sparkles size={14} className="text-cyan-400" /> 1:1 Square Map + Styled Footer
-              </div>
-              <span className="font-mono text-[10px] font-extrabold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-                2048 × 2188 px HD
-              </span>
-            </div>
-
-            <div className="space-y-3">
-              {/* Analyst Name Input */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Analyst Credit Name
-                </label>
-                <input
-                  type="text"
-                  value={analystName}
-                  onChange={(e) => setAnalystName(e.target.value)}
-                  placeholder="e.g. Ashitosh S. Biradar"
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-950/80 px-3.5 py-2.5 text-xs font-semibold text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Description / Subtitle Input */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Description / Strategy Note
-                </label>
-                <input
-                  type="text"
-                  value={exportDesc}
-                  onChange={(e) => setExportDesc(e.target.value)}
-                  placeholder={`BGMI Tactical Board · ${derivedCircles.length} Zones Placed`}
-                  className="w-full rounded-xl border border-slate-700/60 bg-slate-950/80 px-3.5 py-2.5 text-xs font-semibold text-slate-100 placeholder-slate-500 focus:border-amber-400 focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Layout Mode Selection */}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Export Canvas Format
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setExportMode('square')}
-                    className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
-                      exportMode === 'square'
-                        ? 'border-amber-400 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
-                        : 'border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                    }`}
-                  >
-                    <span className="text-[11px] font-extrabold">1:1 Square Map</span>
-                    <span className="text-[9px] opacity-75">Reference Format (2048x2188)</span>
-                  </button>
-                  <button
-                    onClick={() => setExportMode('view')}
-                    className={`flex flex-col items-center justify-center rounded-xl border p-2.5 text-center transition-all ${
-                      exportMode === 'view'
-                        ? 'border-amber-400 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]'
-                        : 'border-slate-800 bg-slate-900/40 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                    }`}
-                  >
-                    <span className="text-[11px] font-extrabold">Current Screen View</span>
-                    <span className="text-[9px] opacity-75">Matches Viewport Framing</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setExportModalOpen(false)
-                  exportRef.current?.({
-                    analystName,
-                    description: exportDesc || `BGMI Tactical Board · ${derivedCircles.length} Zones Placed`,
-                    mode: exportMode,
-                  })
-                  showToast('Exporting High-Res PNG Image...')
-                }}
-                className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 py-3 text-xs font-black text-slate-950 shadow-[0_2px_14px_rgba(251,191,36,0.3)] transition-all hover:scale-[1.02] active:scale-95 cursor-pointer min-h-[44px]"
-              >
-                <Download size={14} /> Download High-Res PNG Image
-              </button>
-            </div>
-          </div>
-        </div>
+        <ExportDialog
+          onClose={() => setExportModalOpen(false)}
+          onExport={() => showToast('Exporting High-Res PNG Image...')}
+          exportRef={exportRef}
+          viewInfoRef={viewInfoRef}
+          mapName={mapName}
+          zoneCount={derivedCircles.length}
+          board={{
+            mapSize,
+            mapImage,
+            mapId,
+            circles: derivedCircles,
+            annos,
+            gridOn,
+            showHeatmap,
+            showContours,
+            showBlueZoneMask,
+          }}
+        />
       )}
 
       {/* Toast Notification */}

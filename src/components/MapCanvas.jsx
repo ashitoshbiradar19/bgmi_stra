@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeView, renderScene, STAGE_COLORS, STAGE_RADII } from '../lib/render'
-import { Plus, Minus, RotateCcw, MousePointer2, PenLine, MoveUpRight, MapPin, Plane, Car, Home, Type, Cloud, Compass, Trash2, X, Sparkles, Shield, Search, PanelRightClose, Square, CircleDot, Palette, Image as ImageIcon } from 'lucide-react'
+import { renderExportCanvas, downloadCanvas, exportFilename, ensureFontsReady } from '../lib/export'
+import { Plus, Minus, RotateCcw, PenLine, Type, Trash2, X, Shield, Search, PanelRightClose, PanelRightOpen, Square, Palette } from 'lucide-react'
 import { TEAMS } from '../data/teams'
+import { KEY_TO_TOOL } from '../data/tools'
+// Selection transforms. The overlay is drawn from the SAME helpers the pointer
+// uses to pick a grip, so what you see is what you can grab.
+import { pickHandle, onPivot, pointerAngle } from '../lib/selection'
+import { drawSelectionOverlay } from '../lib/selectionOverlay'
+import { resizeAnno, rotateAnnoTo, degToRad } from '../lib/geometry'
+import { createMode, withDefaults, propsFor, SEG_MIN_LENGTH } from '../lib/annoTypes'
+import SelectionInspector from './PropControls'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -19,8 +28,13 @@ import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS, OPACITY_PRESETS } fr
 
 function tempAnno(it, penColor, penWidth = 3.5) {
   if (!it) return null
-  if (it.mode === 'stroke' && it.pts && it.pts.length > 0)
-    return { id: '_t', type: 'brush', color: penColor, width: penWidth, points: it.pts }
+  if (it.mode === 'stroke' && it.pts && it.pts.length > 0) {
+    // `kind` is absent for the original pen tool and set for the other stroke
+    // tools (the rotation path), so the preview shows the type that will
+    // actually be created rather than always a brush.
+    const preview = withDefaults({ id: '_t', type: it.kind || 'brush', points: it.pts }, { color: penColor, width: penWidth })
+    return preview
+  }
   if (it.mode === 'seg') return { id: '_t', type: it.kind, color: penColor, width: penWidth, points: [it.start, it.end || it.start] }
   if (it.mode === 'compound')
     return { id: '_t', type: 'compound', color: '#f97316', width: penWidth, points: [it.start, it.end || it.start] }
@@ -30,6 +44,31 @@ function tempAnno(it, penColor, penWidth = 3.5) {
   }
   return null
 }
+
+/**
+ * Tools that already have a hand-written branch in `onPointerDown`.
+ *
+ * The generic block at the end of the handler covers everything else from the
+ * `createMode` registry, but it must not double-handle a tool that already has
+ * bespoke behaviour (a click-to-open modal, a toggle, a specific colour).
+ */
+const HANDLED_TOOLS = new Set([
+  'select', 'eraser', 'pin', 'smoke', 'text', 'vehicle', 'brush',
+  'line', 'arrow', 'ridge', 'circle', 'compound', 'flight', 'flight1', 'flight2',
+])
+
+/** Types whose radius is the distance dragged out from the centre. */
+const RADIUS_TOOLS = new Set(['circle', 'danger', 'smoke'])
+
+/**
+ * Properties the team marker card renders itself. They are excluded from the
+ * shared inspector for team annotations so the same field is not editable from
+ * two places on the same screen.
+ */
+const TEAM_BLOCK_PROPS = new Set(['label', 'size', 'logoUrl', 'showName'])
+
+/** The smallest drag that still counts as drawing, in metres. */
+const MIN_DRAG = SEG_MIN_LENGTH
 
 export default function MapCanvas(props) {
   const {
@@ -47,6 +86,7 @@ export default function MapCanvas(props) {
     updateAnnoPos,
     updateAnno,
     updateAnnoField,
+    replaceAnno,
     updateAnnoRadius,
     updateCircleRadius,
     updateCircleColor,
@@ -102,6 +142,16 @@ export default function MapCanvas(props) {
 
   const rafRef = useRef(null)
   const dirtyRef = useRef(true)
+
+  // Right-hand inspector panel. Collapsible so the map can reclaim the space;
+  // the zoom cluster and coordinate readout offset themselves from it.
+  const [panelOpen, setPanelOpen] = useState(true)
+  const [zoomPct, setZoomPct] = useState(100)
+  const zoomPctRef = useRef(100)
+
+  // When dropping a team logo, do we also drop its name label? Replaces the two
+  // near-identical roster grids that used to sit side by side in this panel.
+  const [placeWithName, setPlaceWithName] = useState(true)
 
   // Trigger demand-driven render
   const requestRender = useCallback(() => {
@@ -165,7 +215,7 @@ export default function MapCanvas(props) {
           gridOn: p.gridOn,
           minorGridOn: p.minorGridOn,
           circles: p.circles,
-          annos: p.annos,
+          annos: p.allAnnos || p.annos,
           highlights: p.highlights,
           selectedId: p.selectedId,
           mapId: p.mapId || 'erangel',
@@ -178,6 +228,36 @@ export default function MapCanvas(props) {
           viewportWidth: w,
           exportScaleFactor: 1.0,
         })
+
+        // Selection chrome, drawn on its own pass AFTER the scene and only in
+        // the live view. `renderExportCanvas` never calls this, which is what
+        // keeps grips and frames out of the downloaded PNG. The projection
+        // mirrors `renderScene`'s own so the frame lands on the object.
+        if (p.selectedId) {
+          const v = viewRef.current
+          const Z = v.ppm * v.zoom
+          const X = (m) => m * Z + v.ox
+          const Y = (m) => m * Z + v.oy
+          const list = p.allAnnos || p.annos || []
+          const sel = list.find((a) => a && a.id === p.selectedId)
+          // While a grip is being dragged the other grips are hidden: they sit
+          // under the cursor and would flicker as the box changes size.
+          const mode = interRef.current?.mode
+          if (sel) {
+            drawSelectionOverlay(ctx, sel, X, Y, {
+              S: 1,
+              showHandles: mode !== 'resize-handle',
+              showPivot: mode !== 'rotate-anno',
+            })
+          }
+        }
+        // Keep the zoom readout honest. Only calls setState when the rounded
+        // percentage actually changes, so the hot path stays cheap.
+        const pct = Math.round(viewRef.current.zoom * 100)
+        if (pct !== zoomPctRef.current) {
+          zoomPctRef.current = pct
+          setZoomPct(pct)
+        }
       }
       // If actively interacting or animating highlights, keep scheduling RAF
       if (interRef.current?.mode || (propsRef.current.highlights && propsRef.current.highlights.length > 0)) {
@@ -194,119 +274,75 @@ export default function MapCanvas(props) {
 
   // PNG Exporter — matches the reference format (1:1 Square Map framing + styled bottom banner).
   useEffect(() => {
-    exportRef.current = (opts = {}) => {
+    // Delegates to the shared composer in lib/export.js. The same function
+    // backs the export dialog's live preview, so what you see is what you get.
+    exportRef.current = async (opts = {}) => {
       const p = propsRef.current
       const vw = sizeRef.current.w || 800
       const vh = sizeRef.current.h || 800
+      const mode = opts.mode || 'square'
 
-      const mode = opts.mode || 'square' // default 1:1 square map framing matching reference format
-      const analystName = opts.analystName !== undefined ? opts.analystName : 'Ashitosh S. Biradar'
-      const descText = opts.description !== undefined ? opts.description : `BGMI Tactical Board · ${p.circles.length} Zones Placed`
+      await ensureFontsReady()
 
-      let exportW, exportH, exportView, scale, bw
-
-      if (mode === 'square') {
-        // High-resolution 1:1 Square Map format (2048x2048 canvas for map)
-        exportW = 2048
-        exportH = 2048
-        scale = 2.56 // 2048 / 800
-        exportView = computeView(exportW, exportH, p.mapSize, 1)
-        bw = Math.round(140 * (exportW / 2048)) // 140px footer height
-      } else {
-        // Screen view framing format
-        const dpr = Math.max(2, window.devicePixelRatio || 2)
-        exportW = Math.max(2048, Math.round(vw * dpr))
-        scale = exportW / vw
-        exportH = Math.round(vh * scale)
-        const screenView = viewRef.current || computeView(vw, vh, p.mapSize, 1)
-        exportView = {
-          ppm: screenView.ppm * scale,
-          zoom: screenView.zoom || 1,
-          ox: screenView.ox * scale,
-          oy: screenView.oy * scale,
-        }
-        bw = Math.round(140 * scale)
-      }
-
-      const off = document.createElement('canvas')
-      off.width = exportW
-      off.height = exportH + bw
-      const ctx = off.getContext('2d')
-
-      // Render map canvas
-      renderScene(ctx, exportW, exportH, {
-        mapSize: p.mapSize,
-        image: p.mapImage,
-        gridOn: p.gridOn,
-        minorGridOn: false,
-        circles: p.circles,
-        annos: p.annos.filter((a) => !a.hidden),
-        highlights: [],
-        selectedId: null,
-        showHeatmap: p.showHeatmap ?? true,
-        showContours: p.showContours ?? false,
-        showBlueZoneMask: p.showBlueZoneMask ?? true,
-        view: exportView,
-        t: performance.now(),
-        viewportWidth: mode === 'square' ? 800 : vw,
-        exportScaleFactor: scale,
+      const { canvas } = await renderExportCanvas({
+        mode,
+        board: {
+          mapSize: p.mapSize,
+          mapImage: p.mapImage,
+          mapName: p.mapName,
+          mapId: p.mapId || 'erangel',
+          circles: p.circles,
+          annos: p.allAnnos || p.annos,
+          gridOn: p.gridOn,
+          showHeatmap: p.showHeatmap,
+          showContours: p.showContours,
+          showBlueZoneMask: p.showBlueZoneMask,
+        },
+        frame: opts.frame || null,
+        view: viewRef.current,
+        viewportW: vw,
+        viewportH: vh,
+        outputWidth: opts.outputWidth || 2048,
+        t: opts.t ?? performance.now(),
       })
 
-      // Draw solid dark footer banner underneath map canvas
-      ctx.fillStyle = '#080D18'
-      ctx.fillRect(0, exportH, exportW, bw)
-
-      // Top divider line (bright cyan stroke)
-      ctx.strokeStyle = '#00e5ff'
-      ctx.lineWidth = Math.round(4 * (exportW / 2048))
-      ctx.beginPath()
-      ctx.moveTo(0, exportH)
-      ctx.lineTo(exportW, exportH)
-      ctx.stroke()
-
-      const scaleF = exportW / 2048
-
-      // Left: Map Title (bold uppercase e.g. "ERANGEL MAP")
-      const titleText = `${p.mapName.toUpperCase()} MAP`
-      ctx.font = `900 ${Math.round(42 * scaleF)}px Inter, system-ui, sans-serif`
-      ctx.fillStyle = '#ffffff'
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'alphabetic'
-      ctx.fillText(titleText, Math.round(40 * scaleF), exportH + Math.round(56 * scaleF))
-
-      // Left Subtitle: Analyst Credit
-      ctx.font = `800 ${Math.round(24 * scaleF)}px Inter, system-ui, sans-serif`
-      ctx.fillStyle = '#FBBF24'
-      const analystLabel = analystName ? `Analysed by ${analystName}` : ''
-      ctx.fillText(analystLabel, Math.round(40 * scaleF), exportH + Math.round(106 * scaleF))
-
-      // Right: Tactical Details / Strategy Description
-      if (descText) {
-        ctx.textAlign = 'right'
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.95)'
-        ctx.font = `700 ${Math.round(22 * scaleF)}px Inter, system-ui, sans-serif`
-        ctx.fillText(descText, exportW - Math.round(40 * scaleF), exportH + Math.round(82 * scaleF))
+      try {
+        await downloadCanvas(canvas, exportFilename(p.mapName, opts.frame?.templateId, mode))
+      } finally {
+        canvas.width = canvas.height = 0
       }
-
-      off.toBlob((b) => {
-        if (!b) return
-        const url = URL.createObjectURL(b)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${p.mapName.toLowerCase().replace(/\s+/g, '-')}-tactical-map.png`
-        a.click()
-        URL.revokeObjectURL(url)
-        // Clean up offscreen canvas memory
-        off.width = off.height = 0
-      })
     }
   }, [])
+
+  useEffect(() => {
+    // The export dialog's live preview needs the same viewport the user is
+    // looking at for "current view" mode. Expose it through a ref using
+    // getters so the snapshot can never go stale.
+    if (props.viewInfoRef) {
+      props.viewInfoRef.current = {
+        get view() { return viewRef.current },
+        get size() { return sizeRef.current },
+      }
+    }
+  }, [props.viewInfoRef])
 
   const toWorld = useCallback((e) => {
     if (!canvasRef.current) return [0, 0]
     const rect = canvasRef.current.getBoundingClientRect()
     return screenToWorldRaw(e.clientX - rect.left, e.clientY - rect.top, viewRef.current)
   }, [])
+
+  // The currently selected annotation, resolved from the latest props on every
+  // read. Pointer handlers are long-lived closures, so looking the object up
+  // through a ref means a grip press always sees the object's live points even
+  // if the selection changed a frame earlier — and, critically, the SAME object
+  // the overlay is drawing, which is what keeps the two in agreement.
+  const selectedAnnoRef = useRef(null)
+  selectedAnnoRef.current = useMemo(() => {
+    const p = propsRef.current
+    const list = p.allAnnos || p.annos || []
+    return p.selectedId ? list.find((a) => a && a.id === p.selectedId) || null : null
+  }, [props.selectedId, props.annos, props.allAnnos])
 
   const hitCircle = (wx, wy, cs) => {
     const v = viewRef.current
@@ -421,6 +457,40 @@ export default function MapCanvas(props) {
     const { activeTool: tool, circles: cs, annos: as, penColor: pc, addAnno: add } = propsRef.current
 
     if (tool === 'select') {
+      // Grips win over the object underneath them. Checked FIRST, before the
+      // hit-test chain below, otherwise grabbing the middle of a rotation
+      // handle would start dragging the shape instead of turning it.
+      const sel = selectedAnnoRef.current
+      if (sel) {
+        const v = viewRef.current
+        const ppm = v.ppm * v.zoom
+        const handle = pickHandle(sel, wx, wy, ppm)
+        if (handle >= 0) {
+          interRef.current = {
+            mode: 'resize-handle',
+            id: sel.id,
+            handle,
+            orig: sel,
+            moved: false,
+          }
+          requestRender()
+          return
+        }
+        if (onPivot(sel, wx, wy, ppm)) {
+          interRef.current = {
+            mode: 'rotate-anno',
+            id: sel.id,
+            orig: sel,
+            // Captured once, on press, so the angle is measured from where the
+            // user actually grabbed rather than drifting with the object.
+            startAngle: pointerAngle(sel, wx, wy),
+            moved: false,
+          }
+          requestRender()
+          return
+        }
+      }
+
       const hitPt = hitPointAnno(wx, wy, as)
       if (hitPt) {
         propsRef.current.setSelectedId(hitPt.id)
@@ -497,6 +567,32 @@ export default function MapCanvas(props) {
       return
     }
 
+    // Eraser: removes whatever sits under the cursor. Hit-tested in the same
+    // priority order as the Select tool so the thing you see selected is the
+    // thing the eraser deletes. removeAnno/removeCircle push their own history
+    // entries, so no extra pushHistory() call here.
+    if (tool === 'eraser') {
+      const rmAnno = propsRef.current.removeAnno
+      const rmCircle = propsRef.current.removeCircle
+
+      const ePt = hitPointAnno(wx, wy, as)
+      if (ePt) { rmAnno?.(ePt.id); requestRender(); return }
+
+      const eLn = hitLineAnno(wx, wy, as)
+      if (eLn) { rmAnno?.(eLn.id); requestRender(); return }
+
+      const eComp = hitCompound(wx, wy, as)
+      if (eComp) { rmAnno?.(eComp.id); requestRender(); return }
+
+      const eCirc = hitCircleAnno(wx, wy, as)
+      if (eCirc) { rmAnno?.(eCirc.id); requestRender(); return }
+
+      const eZone = hitCircle(wx, wy, cs)
+      if (eZone) { rmCircle?.(eZone.id); requestRender(); return }
+
+      return
+    }
+
     if (tool === 'pin') {
       const label = 'Pin ' + String(as.filter((a) => a.type === 'pin').length + 1)
       add({ id: uid(), type: 'pin', color: pc, label, points: [[wx, wy]] })
@@ -561,6 +657,29 @@ export default function MapCanvas(props) {
     if (tool === 'flight' || tool === 'flight1' || tool === 'flight2') {
       interRef.current = { mode: tool, start: [wx, wy], end: [wx, wy] }
       requestRender()
+      return
+    }
+
+    // Everything else comes from the registry in `lib/annoTypes.js`, so adding
+    // a tool is a row in `data/tools.js` plus its `createMode` — not another
+    // hand-written branch here. Modes reuse the existing gesture plumbing, so
+    // pinch, two-finger pan and the preview all keep working unchanged.
+    if (HANDLED_TOOLS.has(tool)) return
+    const mode = createMode(tool)
+    if (mode === 'seg') {
+      interRef.current = { mode: 'seg', kind: tool, start: [wx, wy], end: [wx, wy] }
+      requestRender()
+      return
+    }
+    if (mode === 'stroke') {
+      interRef.current = { mode: 'stroke', kind: tool, pts: [[wx, wy]] }
+      requestRender()
+      return
+    }
+    if (mode === 'point') {
+      add(withDefaults({ id: uid(), type: tool, points: [[wx, wy]] }, { color: pc }))
+      pushHistory()
+      requestRender()
     }
   }
 
@@ -574,6 +693,9 @@ export default function MapCanvas(props) {
         const col = String.fromCharCode(65 + clamp(Math.floor(mx / 1000), 0, 25))
         const row = clamp(Math.floor(my / 1000), 0, 99) + 1
         coordRef.current.textContent = `Grid ${col}${row} · ${Math.round(mx)}m, ${Math.round(my)}m`
+        // Keep the readout clear of the inspector panel; it is written straight
+        // to the DOM here to avoid re-rendering on every pointer move.
+        coordRef.current.style.right = `${coordRef.current.dataset.right || 8}px`
         coordRef.current.style.display = 'block'
       } else {
         coordRef.current.style.display = 'none'
@@ -645,6 +767,21 @@ export default function MapCanvas(props) {
       ])
       it.moved = true
       requestRender()
+    } else if (it.mode === 'resize-handle') {
+      // Always resize from the ORIGINAL object, never from the last resized
+      // one. Resizing an already-resized box compounds the error every frame
+      // and the handle starts to lag behind the cursor.
+      const ms = propsRef.current.mapSize
+      const cx = clamp(wx, 0, ms)
+      const cy = clamp(wy, 0, ms)
+      const next = resizeAnno(it.orig, it.handle, cx, cy)
+      propsRef.current.replaceAnno?.(it.id, next)
+      it.moved = true
+      requestRender()
+    } else if (it.mode === 'rotate-anno') {
+      propsRef.current.replaceAnno?.(it.id, rotateAnnoTo(it.orig, wx, wy, it.startAngle))
+      it.moved = true
+      requestRender()
     } else if (it.mode === 'stroke') {
       const last = it.pts[it.pts.length - 1]
       const v = viewRef.current
@@ -697,7 +834,9 @@ export default function MapCanvas(props) {
         it.mode === 'drag-pin' ||
         it.mode === 'drag-line' ||
         it.mode === 'drag-circle' ||
-        it.mode === 'drag-compound')
+        it.mode === 'drag-compound' ||
+        it.mode === 'resize-handle' ||
+        it.mode === 'rotate-anno')
     ) {
       propsRef.current.pushHistory()
     }
@@ -705,7 +844,9 @@ export default function MapCanvas(props) {
     const pc = propsRef.current.penColor
     const pw = propsRef.current.penWidth || 3.5
     if (it.mode === 'stroke' && it.pts.length > 1) {
-      propsRef.current.addAnno({ id: uid(), type: 'brush', color: pc, width: pw, points: it.pts })
+      propsRef.current.addAnno(
+        withDefaults({ id: uid(), type: it.kind || 'brush', points: it.pts }, { color: pc, width: pw }),
+      )
       propsRef.current.pushHistory()
     } else if (
       (it.mode === 'seg' ||
@@ -714,16 +855,24 @@ export default function MapCanvas(props) {
         it.mode === 'flight1' ||
         it.mode === 'flight2') &&
       it.end &&
-      Math.hypot(it.end[0] - it.start[0], it.end[1] - it.start[1]) > 5
+      Math.hypot(it.end[0] - it.start[0], it.end[1] - it.start[1]) > MIN_DRAG
     ) {
       let a
       if (it.mode === 'compound') {
-        a = { id: uid(), type: 'compound', color: '#f97316', width: pw || 2.5, points: [it.start, it.end] }
+        a = withDefaults({ id: uid(), type: 'compound', points: [it.start, it.end] }, { color: '#f97316', width: pw || 2.5 })
       } else if (it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') {
         const color = it.mode === 'flight2' ? '#a855f7' : '#38bdf8'
-        a = { id: uid(), type: it.mode, color, points: [it.start, it.end] }
+        a = withDefaults({ id: uid(), type: it.mode, points: [it.start, it.end] }, { color })
       } else {
-        a = { id: uid(), type: it.kind, color: pc, width: pw || (it.kind === 'arrow' ? 4 : 3.5), points: [it.start, it.end] }
+        // Radius shapes are dragged out from the centre, so `r` comes from the
+        // drag rather than a default — otherwise every new circle would be the
+        // same size. The second point is kept for backwards compatibility with
+        // boards saved before `r` existed; `radiusOf` prefers `r` when present.
+        const patch = { color: pc }
+        if (RADIUS_TOOLS.has(it.kind)) {
+          patch.r = Math.round(Math.hypot(it.end[0] - it.start[0], it.end[1] - it.start[1]))
+        }
+        a = withDefaults({ id: uid(), type: it.kind, points: [it.start, it.end] }, patch)
       }
       propsRef.current.addAnno(a)
       propsRef.current.pushHistory()
@@ -779,18 +928,10 @@ export default function MapCanvas(props) {
         requestRender()
       }
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
-      const k = e.key.toUpperCase()
-      if (k === 'V') propsRef.current.setActiveTool('select')
-      else if (k === 'P') propsRef.current.setActiveTool('pin')
-      else if (k === 'B') propsRef.current.setActiveTool('brush')
-      else if (k === 'L') propsRef.current.setActiveTool('line')
-      else if (k === 'A') propsRef.current.setActiveTool('arrow')
-      else if (k === 'S') propsRef.current.setActiveTool('smoke')
-      else if (k === 'R') propsRef.current.setActiveTool('ridge')
-      else if (k === 'F') propsRef.current.setActiveTool('flight1')
-      else if (k === 'G') propsRef.current.setActiveTool('vehicle')
-      else if (k === 'C') propsRef.current.setActiveTool('compound')
-      else if (k === 'T') propsRef.current.setActiveTool('text')
+      // Shortcut table lives in src/data/tools.js so it can never drift out of
+      // sync with the toolbar buttons.
+      const toolId = KEY_TO_TOOL[e.key.toUpperCase()]
+      if (toolId) propsRef.current.setActiveTool(toolId)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -859,6 +1000,11 @@ export default function MapCanvas(props) {
   const cursor =
     activeTool === 'select' ? 'grab' : activeTool === 'flight' || activeTool === 'flight1' || activeTool === 'flight2' ? 'crosshair' : 'crosshair'
 
+  // The inspector is 272px wide; HUD elements sit just outside it on desktop
+  // and fall back to the screen edge on mobile / when the panel is collapsed.
+  const PANEL_W = 272
+  const hudRight = isMobile || !panelOpen ? 8 : PANEL_W + 8
+
   return (
     <div ref={wrapRef} className="relative h-full w-full overflow-hidden bg-[#060910]" onDragOver={onDragOver} onDrop={onDrop}>
       <canvas
@@ -872,10 +1018,13 @@ export default function MapCanvas(props) {
       />
 
       {/* Floating Zoom Controls */}
-      <div className={`absolute right-2 sm:right-[292px] top-4 z-20 flex flex-col gap-1.5 rounded-2xl border border-slate-800/50 bg-[#0B1120]/95 p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-2xl`}>
+      <div
+        className="absolute top-3 z-20 flex flex-col items-center gap-0.5 rounded-lg border border-slate-800/60 bg-[#0B1120]/95 p-1 shadow-[0_8px_32px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+        style={{ right: hudRight }}
+      >
         <button
           onClick={() => handleZoom(1.25)}
-          className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800/60 hover:text-slate-200 active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-slate-400 transition-colors duration-150 hover:border-slate-700 hover:bg-slate-800/60 hover:text-slate-100"
           title="Zoom In"
           aria-label="Zoom In"
         >
@@ -883,27 +1032,29 @@ export default function MapCanvas(props) {
         </button>
         <button
           onClick={() => handleZoom(0.8)}
-          className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800/60 hover:text-slate-200 active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-slate-400 transition-colors duration-150 hover:border-slate-700 hover:bg-slate-800/60 hover:text-slate-100"
           title="Zoom Out"
           aria-label="Zoom Out"
         >
           <Minus size={16} />
         </button>
-        <div className="flex h-6 items-center justify-center font-mono text-[9px] font-bold text-amber-400/80 border-t border-slate-800/40 pt-1.5">
-          {Math.round(viewRef.current.zoom * 100)}%
+        <div className="my-0.5 h-px w-5 bg-slate-800/70" />
+        <div className="font-mono text-[9px] font-bold tabular-nums text-amber-400/80">
+          {zoomPct}%
         </div>
+        <div className="my-0.5 h-px w-5 bg-slate-800/70" />
         <button
           onClick={handleResetView}
-          className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-slate-700/40 bg-slate-800/30 text-slate-400 transition-all duration-200 hover:border-slate-600 hover:bg-slate-800/60 hover:text-slate-200 active:scale-95"
-          title="Reset View"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-transparent text-slate-400 transition-colors duration-150 hover:border-slate-700 hover:bg-slate-800/60 hover:text-slate-100"
+          title="Reset Zoom &amp; Pan (100%)"
           aria-label="Reset Zoom and Pan"
         >
           <RotateCcw size={15} />
         </button>
       </div>
 
-      {/* Fixed Right-Side Tools Panel */}
-      {(!isMobile || mobilePanelOpen) && (
+      {/* Fixed Right-Side Inspector Panel (tool settings / layers / properties) */}
+      {(!isMobile ? panelOpen : mobilePanelOpen) && (
         <>
           {/* Mobile: backdrop overlay */}
           {isMobile && mobilePanelOpen && (
@@ -912,73 +1063,49 @@ export default function MapCanvas(props) {
               onClick={() => setMobilePanelOpen(false)}
             />
           )}
-          <div className={`${isMobile ? 'fixed inset-y-0 right-0 z-40 w-[85vw] max-w-[320px] animate-slide-left' : 'absolute right-0 top-0 bottom-0 z-30 w-[280px]'} flex flex-col border-l border-slate-800/50 bg-[#090E1A]/98 shadow-[-8px_0_32px_rgba(0,0,0,0.3)] backdrop-blur-2xl animate-fade-in`}>
+          <div className={`${isMobile ? 'fixed inset-y-0 right-0 z-40 w-[85vw] max-w-[320px] animate-slide-left' : 'absolute right-0 top-0 bottom-0 z-30'} flex flex-col border-l border-slate-800/50 bg-[#090E1A]/98 shadow-[-8px_0_32px_rgba(0,0,0,0.3)] backdrop-blur-2xl animate-fade-in`}
+            style={isMobile ? undefined : { width: PANEL_W }}>
         {/* Panel Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-800/50 px-4 py-3">
-          <div className="flex items-center gap-2.5 text-[13px] font-extrabold text-white">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-400/10">
-              <Sparkles size={14} className="text-amber-400" />
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-800/50 px-3.5 py-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-400/10">
+              <Palette size={13} className="text-amber-400" />
             </div>
-            <span>Tactical Tools</span>
+            <span className="truncate text-[12px] font-extrabold tracking-tight text-white">Inspector</span>
+            {(selectedCircle || selectedAnno) && (
+              <span className="shrink-0 rounded border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-amber-300">
+                Editing
+              </span>
+            )}
           </div>
-          {(selectedCircle || selectedAnno) && (
-            <button
-              onClick={() => setSelectedId(null)}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 transition-colors duration-200 hover:bg-slate-800/60 hover:text-slate-200"
-              title="Deselect"
-              aria-label="Deselect"
-            >
-              <X size={15} />
-            </button>
-          )}
+          <div className="flex shrink-0 items-center gap-0.5">
+            {(selectedCircle || selectedAnno) && (
+              <button
+                onClick={() => setSelectedId(null)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors duration-150 hover:bg-slate-800/60 hover:text-slate-200"
+                title="Deselect"
+                aria-label="Deselect"
+              >
+                <X size={14} />
+              </button>
+            )}
+            {/* Collapse is a desktop affordance; on mobile this drawer is
+                already dismissable by tapping the backdrop. */}
+            {!isMobile && (
+              <button
+                onClick={() => setPanelOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 transition-colors duration-150 hover:bg-slate-800/60 hover:text-slate-200"
+                title="Collapse panel"
+                aria-label="Collapse inspector panel"
+              >
+                <PanelRightClose size={14} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Panel Body */}
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-          {/* Active Tool indicator */}
-          <div className="flex items-center justify-between rounded-xl border border-slate-800/40 bg-slate-900/25 px-3 py-2">
-            <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Active Tool</span>
-            <span className="text-[11px] font-extrabold text-amber-400">
-              {activeTool === 'flight1' ? 'FLIGHT' : activeTool === 'flight2' ? 'FLIGHT 2' : activeTool.toUpperCase()}
-            </span>
-          </div>
-
-          {/* Drawing Tools Grid */}
-          <div className="space-y-2">
-            <div className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Drawing Tools</div>
-            <div className="grid grid-cols-4 gap-1.5">
-              {[
-                { id: 'select', icon: MousePointer2, label: 'Select (V)' },
-                { id: 'circle', icon: CircleDot, label: 'Circle (O)' },
-                { id: 'pin', icon: MapPin, label: 'Pin (P)' },
-                { id: 'brush', icon: PenLine, label: 'Brush (B)' },
-                { id: 'line', icon: Minus, label: 'Line (L)' },
-                { id: 'arrow', icon: MoveUpRight, label: 'Arrow (A)' },
-                { id: 'flight1', icon: Plane, label: 'Flight (F)' },
-                { id: 'flight2', icon: Plane, label: 'Flight 2 (F2)' },
-                { id: 'vehicle', icon: Car, label: 'Vehicle (G)' },
-                { id: 'compound', icon: Home, label: 'Compound (C)' },
-                { id: 'text', icon: Type, label: 'Text (T)' },
-                { id: 'smoke', icon: Cloud, label: 'Smoke (S)' },
-                { id: 'ridge', icon: Compass, label: 'Ridge (R)' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTool(t.id)}
-                  title={t.label}
-                  aria-label={t.label}
-                  aria-pressed={activeTool === t.id}
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-200 active:scale-95 ${
-                    activeTool === t.id
-                      ? 'border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.1)]'
-                      : 'border-slate-800/40 bg-slate-800/20 text-slate-500 hover:border-slate-700/50 hover:text-slate-300'
-                  }`}
-                >
-                  <t.icon size={16} />
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3.5">
 
           {/* Default Pen Color Palette */}
           <div className="space-y-2">
@@ -1069,14 +1196,35 @@ export default function MapCanvas(props) {
             </div>
           </div>
 
-          {/* Teams Roster */}
+          {/* Team Markers — one roster for both "with name" and "logo only"
+              placement. These were two near-identical grids; the only
+              difference was the showName flag, so it is a toggle now. */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
                 <Shield size={11} className="text-amber-400" />
-                <span>Teams ({filteredTeams.length})</span>
+                <span>Team Markers ({filteredTeams.length})</span>
               </div>
-              <span className="text-[9px] font-medium text-slate-600">Drag to map</span>
+              <div className="flex shrink-0 items-center gap-0.5 rounded-md border border-slate-800/60 bg-slate-950/50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setPlaceWithName(true)}
+                  aria-pressed={placeWithName}
+                  title="Drop the logo together with its team name"
+                  className={`rounded px-1.5 py-1 text-[9px] font-extrabold uppercase tracking-wider transition-colors ${placeWithName ? 'bg-amber-400/20 text-amber-300' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Name
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlaceWithName(false)}
+                  aria-pressed={!placeWithName}
+                  title="Drop the logo on its own"
+                  className={`rounded px-1.5 py-1 text-[9px] font-extrabold uppercase tracking-wider transition-colors ${!placeWithName ? 'bg-amber-400/20 text-amber-300' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Logo
+                </button>
+              </div>
             </div>
             <div className="relative">
               <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -1085,7 +1233,7 @@ export default function MapCanvas(props) {
                 value={teamQuery}
                 onChange={(e) => setTeamQuery(e.target.value)}
                 placeholder="Search team or rank..."
-                className="w-full rounded-xl border border-slate-700/50 bg-slate-950/50 pl-8 pr-8 py-2 text-xs font-medium text-slate-100 placeholder-slate-500 focus:border-amber-400/50 focus:outline-none transition-colors"
+                className="w-full rounded-lg border border-slate-700/50 bg-slate-950/50 pl-8 pr-8 py-2 text-xs font-medium text-slate-100 placeholder-slate-500 focus:border-amber-400/50 focus:outline-none transition-colors"
               />
               {teamQuery && (
                 <button
@@ -1098,81 +1246,15 @@ export default function MapCanvas(props) {
                 </button>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto pr-1">
+            <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto pr-1">
               {filteredTeams.map((t) => (
                 <div
                   key={t.id}
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/x-team-id', t.id)
+                    e.dataTransfer.setData('text/x-show-name', String(placeWithName))
                     e.dataTransfer.setData('text/plain', t.id) // Safari requires plain text for drop
-                    e.dataTransfer.effectAllowed = 'copy'
-                  }}
-                  className="group flex cursor-grab items-center gap-2 rounded-xl border border-slate-800/40 bg-[#0D1525] p-2 transition-all duration-200 hover:border-amber-400/25 hover:bg-slate-800/30 active:scale-[0.97] active:cursor-grabbing"
-                  title={`${t.name} · ${t.event}`}
-                >
-                  <span
-                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border p-0.5 text-[10px] font-black text-white"
-                    style={{
-                      background: `linear-gradient(135deg, ${t.color2 || '#1e293b'}, #0f172a)`,
-                      borderColor: t.color || '#38bdf8',
-                      boxShadow: `0 0 8px ${t.color || '#38bdf8'}33`,
-                    }}
-                  >
-                    {t.logoUrl ? (
-                      <img
-                        src={t.logoUrl.startsWith('/') ? `${import.meta.env.BASE_URL}${t.logoUrl.slice(1)}` : `${import.meta.env.BASE_URL}${t.logoUrl}`}
-                        alt={t.name}
-                        loading="lazy"
-                        draggable={false}
-                        className="h-full w-full object-contain filter drop-shadow-sm"
-                        onError={(e) => {
-                          const raw = t.logoUrl.startsWith('/') ? t.logoUrl.slice(1) : t.logoUrl
-                          const fallback = `./${raw}`
-                          if (!e.currentTarget.dataset.retried) {
-                            e.currentTarget.dataset.retried = 'true'
-                            e.currentTarget.src = fallback
-                          } else {
-                            e.currentTarget.style.display = 'none'
-                          }
-                        }}
-                      />
-                    ) : (
-                      <>{t.short}</>
-                    )}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="truncate text-[10px] font-bold text-slate-200">{t.name}</div>
-                    <div className="truncate text-[8px] font-semibold text-slate-600">#{t.rank} · {t.event}</div>
-                  </div>
-                </div>
-              ))}
-              {filteredTeams.length === 0 && (
-                <p className="col-span-2 rounded-xl border border-slate-800/60 bg-slate-900/40 px-3 py-4 text-center text-[10px] text-slate-500">
-                  No teams match "{teamQuery.trim()}"
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Only Logos (Team Name Below) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-cyan-400">
-                <ImageIcon size={11} className="text-cyan-400" />
-                <span>Only Logos ({filteredTeams.length})</span>
-              </div>
-              <span className="text-[9px] font-medium text-slate-500">Logo · Name Below</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 max-h-56 overflow-y-auto pr-1">
-              {filteredTeams.map((t) => (
-                <div
-                  key={`only-logo-${t.id}`}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/x-team-id', t.id)
-                    e.dataTransfer.setData('text/x-show-name', 'false')
-                    e.dataTransfer.setData('text/plain', t.id)
                     e.dataTransfer.effectAllowed = 'copy'
                   }}
                   onClick={() => {
@@ -1188,7 +1270,7 @@ export default function MapCanvas(props) {
                       color2: t.color2 || '#0f172a',
                       label: t.name,
                       size: 1,
-                      showName: false,
+                      showName: placeWithName,
                       logoUrl: t.logoUrl || '',
                       points: [[clamp(wx, 0, mapSize), clamp(wy, 0, mapSize)]],
                     }
@@ -1197,15 +1279,14 @@ export default function MapCanvas(props) {
                     pushHistory()
                     requestRender()
                   }}
-                  className="group flex flex-col items-center justify-between rounded-xl border border-slate-800/50 bg-[#0D1525] p-2 transition-all duration-200 hover:border-cyan-400/30 hover:bg-slate-800/30 active:scale-[0.96] cursor-grab active:cursor-grabbing"
-                  title={`${t.name} · Click to place / Drag to map`}
+                  className="group flex cursor-grab flex-col items-center rounded-lg border border-slate-800/50 bg-[#0D1525] p-1.5 transition-colors duration-150 hover:border-amber-400/30 hover:bg-slate-800/30 active:cursor-grabbing"
+                  title={`${t.name} · #${t.rank} ${t.event} — click or drag onto the map`}
                 >
                   <span
-                    className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border p-1 text-[11px] font-black text-white group-hover:scale-105 transition-transform"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border p-1 text-[10px] font-black text-white"
                     style={{
                       background: `linear-gradient(135deg, ${t.color2 || '#1e293b'}, #0f172a)`,
                       borderColor: t.color || '#38bdf8',
-                      boxShadow: `0 0 8px ${t.color || '#38bdf8'}33`,
                     }}
                   >
                     {t.logoUrl ? (
@@ -1214,7 +1295,7 @@ export default function MapCanvas(props) {
                         alt={t.name}
                         loading="lazy"
                         draggable={false}
-                        className="h-full w-full object-contain filter drop-shadow-sm"
+                        className="h-full w-full object-contain"
                         onError={(e) => {
                           const raw = t.logoUrl.startsWith('/') ? t.logoUrl.slice(1) : t.logoUrl
                           const fallback = `./${raw}`
@@ -1230,17 +1311,23 @@ export default function MapCanvas(props) {
                       <>{t.short}</>
                     )}
                   </span>
-                  <div className="mt-1.5 w-full truncate text-center text-[9px] font-bold text-slate-200 group-hover:text-cyan-300 transition-colors">
+                  <div className="mt-1 w-full truncate text-center text-[9px] font-bold text-slate-300">
                     {t.name}
+                  </div>
+                  <div className="truncate text-center text-[8px] font-semibold text-slate-600">
+                    #{t.rank}
                   </div>
                 </div>
               ))}
               {filteredTeams.length === 0 && (
-                <p className="col-span-3 rounded-xl border border-slate-800/60 bg-slate-900/40 px-3 py-4 text-center text-[10px] text-slate-500">
-                  No logos match "{teamQuery.trim()}"
+                <p className="col-span-3 rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-4 text-center text-[10px] text-slate-500">
+                  No teams match "{teamQuery.trim()}"
                 </p>
               )}
             </div>
+            <p className="text-[9px] leading-relaxed text-slate-600">
+              Drag a logo onto the map, or click to drop it at the centre.
+            </p>
           </div>
 
           {/* Selected-item separator */}
@@ -1468,574 +1555,29 @@ export default function MapCanvas(props) {
                   </div>
                 )}
 
-                {selectedAnno.type === 'text' && (
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Text Content</span>
-                      <input
-                        type="text"
-                        value={selectedAnno.label || ''}
-                        onChange={(e) => updateAnnoLabel && updateAnnoLabel(selectedAnno.id, e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/50 bg-slate-950/50 px-3.5 py-2.5 text-sm font-medium text-slate-100 focus:border-cyan-500/50 focus:outline-none transition-colors"
-                        placeholder="Type text note..."
-                      />
-                    </div>
+                {/*
+                  One inspector, driven by the type registry in lib/annoTypes.js.
+                  Every property a type declares gets a control here, so a newly
+                  added property is editable without touching this file — and the
+                  Sidebar shows the identical controls, which is what stops the
+                  two panels drifting apart.
 
-                    {/* Text Style Toggle (Boxed Callout vs Plain Text No Box) */}
-                    <div className="space-y-1.5">
-                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Text Style</span>
-                      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800/50 bg-slate-950/50 p-1">
-                        <button
-                          type="button"
-                          onClick={() => updateAnnoField && updateAnnoField(selectedAnno.id, { plainText: false })}
-                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
-                            !selectedAnno.plainText
-                              ? 'border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-sm'
-                              : 'border border-transparent text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          <Square size={13} /> Boxed
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateAnnoField && updateAnnoField(selectedAnno.id, { plainText: true })}
-                          className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-[10px] font-bold transition-all ${
-                            selectedAnno.plainText
-                              ? 'border border-cyan-400/40 bg-cyan-400/15 text-cyan-300 shadow-sm'
-                              : 'border border-transparent text-slate-400 hover:text-slate-200'
-                          }`}
-                        >
-                          <Type size={13} /> Plain (No Box)
-                        </button>
-                      </div>
-                    </div>
+                  `TEAM_BLOCK_PROPS` are the ones the team card just above
+                  already owns. They are filtered out rather than rendered twice:
+                  duplicated controls for the same field are worse than none,
+                  because it is not obvious which one wins.
+                */}
+                <SelectionInspector
+                  anno={selectedAnno}
+                  props={propsFor(selectedAnno.type).filter(
+                    (pr) => !(selectedAnno.type === 'team' && TEAM_BLOCK_PROPS.has(pr.key)),
+                  )}
+                  onChange={(patch) => {
+                    updateAnnoField && updateAnnoField(selectedAnno.id, patch)
+                    requestRender()
+                  }}
+                />
 
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Font Size</span>
-                        <span className="font-mono text-[10px] font-bold text-cyan-400">
-                          {selectedAnno.fontSize || 20}px
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={10}
-                        max={120}
-                        step={1}
-                        value={selectedAnno.fontSize || 20}
-                        onChange={(e) =>
-                          updateAnnoFontSize && updateAnnoFontSize(selectedAnno.id, parseInt(e.target.value, 10))
-                        }
-                        className="w-full cursor-pointer accent-cyan-400"
-                      />
-                      <div className="grid grid-cols-3 gap-1">
-                        {FONT_PRESETS.map((p) => (
-                          <button
-                            key={p.size}
-                            onClick={() => updateAnnoFontSize && updateAnnoFontSize(selectedAnno.id, p.size)}
-                            className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                              (selectedAnno.fontSize || 20) === p.size
-                                ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300'
-                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                            }`}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Text Opacity Slider & Presets */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Text Opacity</span>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {Math.round((selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.1}
-                        max={1.0}
-                        step={0.05}
-                        value={selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value)
-                          updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: val })
-                          requestRender()
-                        }}
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                      <div className="grid grid-cols-4 gap-1">
-                        {OPACITY_PRESETS.map((p) => (
-                          <button
-                            key={p.label}
-                            onClick={() => {
-                              updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: p.val })
-                              requestRender()
-                            }}
-                            className={`rounded-lg border py-1 text-[10px] font-bold transition-all duration-150 ${
-                              (selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) === p.val
-                                ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
-                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                            }`}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'circle' && (
-                  <div className="space-y-3">
-                    {/* Circle Radius / Size */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
-                          Circle Radius / Size
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              const curr = Math.round(
-                                typeof selectedAnno.r === 'number' && selectedAnno.r > 0
-                                  ? selectedAnno.r
-                                  : (selectedAnno.points?.[1]
-                                    ? Math.hypot(
-                                        selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                        selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                                      )
-                                    : 50),
-                              )
-                              const next = Math.max(10, curr - 25)
-                              if (updateAnnoRadius) updateAnnoRadius(selectedAnno.id, next)
-                              else if (updateAnnoField) updateAnnoField(selectedAnno.id, { r: next })
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                            title="Decrease Radius"
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[50px] text-center">
-                            r = {Math.round(
-                              typeof selectedAnno.r === 'number' && selectedAnno.r > 0
-                                ? selectedAnno.r
-                                : (selectedAnno.points?.[1]
-                                  ? Math.hypot(
-                                      selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                      selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                                    )
-                                  : 50),
-                            )}m
-                          </span>
-                          <button
-                            onClick={() => {
-                              const curr = Math.round(
-                                typeof selectedAnno.r === 'number' && selectedAnno.r > 0
-                                  ? selectedAnno.r
-                                  : (selectedAnno.points?.[1]
-                                    ? Math.hypot(
-                                        selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                        selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                                      )
-                                    : 50),
-                              )
-                              const next = Math.min(3000, curr + 25)
-                              if (updateAnnoRadius) updateAnnoRadius(selectedAnno.id, next)
-                              else if (updateAnnoField) updateAnnoField(selectedAnno.id, { r: next })
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                            title="Increase Radius"
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min={10}
-                        max={2500}
-                        step={10}
-                        value={Math.round(
-                          typeof selectedAnno.r === 'number' && selectedAnno.r > 0
-                            ? selectedAnno.r
-                            : (selectedAnno.points?.[1]
-                              ? Math.hypot(
-                                  selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                  selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                                )
-                              : 50),
-                        )}
-                        onChange={(e) => {
-                          const r = parseInt(e.target.value, 10)
-                          if (updateAnnoRadius) {
-                            updateAnnoRadius(selectedAnno.id, r)
-                          } else if (updateAnnoField) {
-                            updateAnnoField(selectedAnno.id, { r })
-                          }
-                          requestRender()
-                        }}
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                      <div className="grid grid-cols-5 gap-1">
-                        {[50, 150, 300, 500, 1000].map((sz) => (
-                          <button
-                            key={sz}
-                            onClick={() => {
-                              if (updateAnnoRadius) {
-                                updateAnnoRadius(selectedAnno.id, sz)
-                              } else if (updateAnnoField) {
-                                updateAnnoField(selectedAnno.id, { r: sz })
-                              }
-                              requestRender()
-                            }}
-                            className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
-                          >
-                            {sz}m
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Circle Line Thickness / Stroke Size */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Circle Line Thickness</span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              const curr = selectedAnno.width || 3.5
-                              const next = Math.max(1, curr - 1)
-                              updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[36px] text-center">
-                            {selectedAnno.width || 3.5}px
-                          </span>
-                          <button
-                            onClick={() => {
-                              const curr = selectedAnno.width || 3.5
-                              const next = Math.min(30, curr + 1)
-                              updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={30}
-                        step={1}
-                        value={selectedAnno.width || 3.5}
-                        onChange={(e) =>
-                          updateAnnoWidth && updateAnnoWidth(selectedAnno.id, parseInt(e.target.value, 10))
-                        }
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                      <div className="grid grid-cols-5 gap-1">
-                        {[2, 4, 8, 14, 22].map((w) => (
-                          <button
-                            key={w}
-                            onClick={() => {
-                              updateAnnoWidth && updateAnnoWidth(selectedAnno.id, w)
-                              requestRender()
-                            }}
-                            className={`rounded-lg border py-1 text-[9px] font-bold transition-all ${
-                              (selectedAnno.width || 3.5) === w
-                                ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
-                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                            }`}
-                          >
-                            {w}px
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Circle Fill Opacity */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Fill Opacity</span>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {Math.round((selectedAnno.opacity !== undefined ? selectedAnno.opacity : 0.12) * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={1.0}
-                        step={0.05}
-                        value={selectedAnno.opacity !== undefined ? selectedAnno.opacity : 0.12}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value)
-                          updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: val })
-                          requestRender()
-                        }}
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'pin' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Pin Size / Scale</span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              const curr = selectedAnno.size || 1
-                              const next = Math.max(0.4, curr - 0.2)
-                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[40px] text-center">
-                            {Math.round((selectedAnno.size || 1) * 100)}%
-                          </span>
-                          <button
-                            onClick={() => {
-                              const curr = selectedAnno.size || 1
-                              const next = Math.min(3, curr + 0.2)
-                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.4}
-                        max={3}
-                        step={0.1}
-                        value={selectedAnno.size || 1}
-                        onChange={(e) => {
-                          updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
-                          requestRender()
-                        }}
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                      <div className="grid grid-cols-4 gap-1">
-                        {[0.6, 1.0, 1.5, 2.0].map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => {
-                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: s })
-                              requestRender()
-                            }}
-                            className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
-                          >
-                            {s}x
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Pin Callout / Label</span>
-                      <input
-                        type="text"
-                        value={selectedAnno.label || ''}
-                        onChange={(e) => updateAnnoLabel && updateAnnoLabel(selectedAnno.id, e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/50 bg-slate-950/50 px-3.5 py-2 text-xs font-medium text-slate-100 focus:border-amber-400/50 focus:outline-none"
-                        placeholder="Squad callout..."
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'vehicle' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Vehicle Size</span>
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              const curr = selectedAnno.size || 1
-                              const next = Math.max(0.4, curr - 0.2)
-                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[40px] text-center">
-                            {Math.round((selectedAnno.size || 1) * 100)}%
-                          </span>
-                          <button
-                            onClick={() => {
-                              const curr = selectedAnno.size || 1
-                              const next = Math.min(3, curr + 0.2)
-                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
-                              requestRender()
-                            }}
-                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.4}
-                        max={3}
-                        step={0.1}
-                        value={selectedAnno.size || 1}
-                        onChange={(e) => {
-                          updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
-                          requestRender()
-                        }}
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'smoke' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Smoke Cloud Radius</span>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">{selectedAnno.r || 15}m</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={5}
-                        max={80}
-                        step={2}
-                        value={selectedAnno.r || 15}
-                        onChange={(e) => {
-                          updateAnnoField && updateAnnoField(selectedAnno.id, { r: parseInt(e.target.value, 10) })
-                          requestRender()
-                        }}
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'compound' || selectedAnno.type === 'ridge') && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
-                        {selectedAnno.type === 'brush' ? 'Brush Stroke Thickness' : selectedAnno.type === 'arrow' ? 'Arrow Thickness & Size' : selectedAnno.type === 'line' ? 'Line Thickness' : `${selectedAnno.type.toUpperCase()} Line Thickness`}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            const curr = selectedAnno.width || 3.5
-                            const next = Math.max(1, curr - 1)
-                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
-                            requestRender()
-                          }}
-                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          title="Decrease thickness"
-                        >
-                          <Minus size={11} />
-                        </button>
-                        <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[36px] text-center">
-                          {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
-                        </span>
-                        <button
-                          onClick={() => {
-                            const curr = selectedAnno.width || 3.5
-                            const next = Math.min(40, curr + 1)
-                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
-                            requestRender()
-                          }}
-                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          title="Increase thickness"
-                        >
-                          <Plus size={11} />
-                        </button>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={40}
-                      step={1}
-                      value={selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}
-                      onChange={(e) =>
-                        updateAnnoWidth && updateAnnoWidth(selectedAnno.id, parseInt(e.target.value, 10))
-                      }
-                      className="w-full cursor-pointer accent-amber-400"
-                    />
-                    <div className="grid grid-cols-5 gap-1">
-                      {[2, 4, 8, 14, 24].map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p)}
-                          className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                            (selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)) === p
-                              ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
-                              : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                          }`}
-                        >
-                          {p}px
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Color Palette for Selected Item */}
-                {selectedAnno.type !== 'team' && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Color ({COLOR_PRESETS.length})</span>
-                    <span className="font-mono text-[9px] font-bold uppercase text-amber-400">
-                      {selectedAnno.color || penColor}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-6 gap-1.5 rounded-xl border border-slate-800/50 bg-slate-950/50 p-2.5">
-                    {COLOR_PRESETS.map((c) => (
-                      <button
-                        key={c.hex}
-                        onClick={() => handleColorSelect && handleColorSelect(c.hex)}
-                        title={c.name}
-                        className={`h-5 w-5 rounded-full border-2 transition-all duration-150 ${
-                          (selectedAnno.color || penColor)?.toLowerCase() === c.hex.toLowerCase()
-                            ? 'scale-[1.2] border-white/90 shadow-[0_0_10px_rgba(255,255,255,0.4)] z-10'
-                            : 'border-transparent hover:scale-110 opacity-70 hover:opacity-100'
-                        }`}
-                        style={{ backgroundColor: c.hex }}
-                      />
-                    ))}
-                    <label
-                      title="Custom Color"
-                      className="relative flex h-5 w-5 cursor-pointer items-center justify-center rounded-full border-2 border-slate-600 bg-[conic-gradient(at_center,_var(--tw-gradient-stops))] from-red-500 via-green-500 to-blue-500 hover:scale-110 transition-transform"
-                    >
-                      <input
-                        type="color"
-                        value={selectedAnno.color || penColor}
-                        onChange={(e) => handleColorSelect && handleColorSelect(e.target.value)}
-                        className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
-                      />
-                    </label>
-                  </div>
-                </div>
-                )}
 
                 {/* Delete */}
                 <button
@@ -2051,11 +1593,25 @@ export default function MapCanvas(props) {
         </>
       )}
 
+      {/* Collapsed inspector handle — restores the panel without a trip to the
+          header. Desktop only, since mobile uses the drawer + backdrop. */}
+      {!isMobile && !panelOpen && (
+        <button
+          onClick={() => setPanelOpen(true)}
+          className="absolute right-0 top-3 z-20 flex h-9 w-9 items-center justify-center rounded-l-lg border border-r-0 border-slate-800/60 bg-[#0B1120]/95 text-slate-400 transition-colors duration-150 hover:bg-slate-800/70 hover:text-slate-100"
+          title="Show inspector panel"
+          aria-label="Show inspector panel"
+        >
+          <PanelRightOpen size={15} />
+        </button>
+      )}
+
       {/* Coordinate Readout */}
       <div
         ref={coordRef}
         style={{ display: 'none' }}
-        className={`pointer-events-none absolute bottom-4 ${isMobile ? 'right-2' : 'right-[292px]'} z-20 rounded-xl border border-slate-800/50 bg-[#0B1120]/95 px-3.5 py-2 font-mono text-[11px] font-semibold text-amber-400/80 shadow-[0_4px_16px_rgba(0,0,0,0.3)] backdrop-blur-2xl`}
+        className="pointer-events-none absolute bottom-4 z-20 rounded-lg border border-slate-800/60 bg-[#0B1120]/95 px-3 py-1.5 font-mono text-[11px] font-semibold tabular-nums text-amber-400/80 shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+        data-right={hudRight}
       />
 
       {/* Active Tool Prompt */}

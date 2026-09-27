@@ -1,14 +1,7 @@
 import { useState } from 'react'
 import {
-  MousePointer2,
-  PenLine,
   Minus,
-  MoveUpRight,
-  MapPin,
   Plane,
-  Car,
-  Home,
-  Type,
   Layers,
   Eye,
   EyeOff,
@@ -17,11 +10,9 @@ import {
   Eraser,
   Sparkles,
   ShieldAlert,
-  Cloud,
   Compass,
   Trash2,
   X,
-  CircleDot,
   Plus,
 } from 'lucide-react'
 import TrainingPanel from './TrainingPanel'
@@ -30,23 +21,10 @@ import TeamRecords from './TeamRecords'
 import { MAPS, PRESET_STRATEGIES } from '../data/maps'
 import { MAP_TOURNAMENT_CONFIGS, analyzeRondoTerrain, checkBridgeCamp } from '../data/tournament'
 import { getReachableCompounds } from '../lib/render'
-import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS, OPACITY_PRESETS } from '../data/colors'
-
-const TOOLS = [
-  { id: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
-  { id: 'circle', icon: CircleDot, label: 'Circle', key: 'O' },
-  { id: 'pin', icon: MapPin, label: 'Pin', key: 'P' },
-  { id: 'flight1', icon: Plane, label: 'Flight Path', key: 'F' },
-  { id: 'flight2', icon: Plane, label: 'Flight Path 2', key: 'F2' },
-  { id: 'brush', icon: PenLine, label: 'Brush', key: 'B' },
-  { id: 'line', icon: Minus, label: 'Line', key: 'L' },
-  { id: 'arrow', icon: MoveUpRight, label: 'Arrow', key: 'A' },
-  { id: 'smoke', icon: Cloud, label: 'Smoke', key: 'S' },
-  { id: 'compound', icon: Home, label: 'Compound', key: 'C' },
-  { id: 'ridge', icon: Compass, label: 'Ridge', key: 'R' },
-  { id: 'vehicle', icon: Car, label: 'Vehicle', key: 'G' },
-  { id: 'text', icon: Type, label: 'Text', key: 'T' },
-]
+import { COLOR_PRESETS } from '../data/colors'
+import { propsFor } from '../lib/annoTypes'
+import SelectionInspector from './PropControls'
+import { TOOLS } from '../data/tools'
 
 const LAYER_TYPES = [
   { id: 'flight', label: 'Flight paths' },
@@ -256,333 +234,28 @@ export default function Sidebar(props) {
                   </button>
                 </div>
 
-                {selectedAnno.type === 'text' && (
-                  <>
-                    <div className="space-y-1.5">
-                      <SectionTitle>Text Content</SectionTitle>
-                      <input
-                        type="text"
-                        value={selectedAnno.label || ''}
-                        onChange={(e) => updateAnnoLabel && updateAnnoLabel(selectedAnno.id, e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/60 bg-slate-950/60 px-3.5 py-2.5 text-xs font-medium text-slate-100 focus:border-cyan-500/50 focus:outline-none transition-colors"
-                        placeholder="Type text note..."
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <SectionTitle>Font Size</SectionTitle>
-                        <span className="font-mono text-[10px] font-bold text-cyan-400">
-                          {selectedAnno.fontSize || 20}px
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={10}
-                        max={120}
-                        step={1}
-                        value={selectedAnno.fontSize || 20}
-                        onChange={(e) =>
-                          updateAnnoFontSize && updateAnnoFontSize(selectedAnno.id, parseInt(e.target.value, 10))
-                        }
-                        className="w-full cursor-pointer accent-cyan-400"
-                      />
-                      <div className="grid grid-cols-3 gap-1">
-                        {FONT_PRESETS.map((p) => (
-                          <button
-                            key={p.size}
-                            onClick={() => updateAnnoFontSize && updateAnnoFontSize(selectedAnno.id, p.size)}
-                            className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                              (selectedAnno.fontSize || 20) === p.size
-                                ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-300'
-                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                            }`}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Text Opacity Controls */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <SectionTitle>Text Opacity</SectionTitle>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {Math.round((selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.1}
-                        max={1.0}
-                        step={0.05}
-                        value={selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1}
-                        onChange={(e) =>
-                          updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: parseFloat(e.target.value) })
-                        }
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                      <div className="grid grid-cols-4 gap-1">
-                        {OPACITY_PRESETS.map((p) => (
-                          <button
-                            key={p.label}
-                            onClick={() => updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: p.val })}
-                            className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                              (selectedAnno.opacity !== undefined ? selectedAnno.opacity : 1) === p.val
-                                ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
-                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                            }`}
-                          >
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {selectedAnno.type === 'team' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <SectionTitle>Logo Size</SectionTitle>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {Math.round((selectedAnno.size || 1) * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.4}
-                        max={3}
-                        step={0.05}
-                        value={selectedAnno.size || 1}
-                        onChange={(e) =>
-                          props.updateAnnoField &&
-                          props.updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
-                        }
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                      <div className="grid grid-cols-4 gap-1">
-                        {[0.6, 1, 1.5, 2.5].map((s) => (
-                          <button
-                            key={s}
-                            onClick={() =>
-                              props.updateAnnoField && props.updateAnnoField(selectedAnno.id, { size: s })
-                            }
-                            className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
-                          >
-                            {s}x
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'pin' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <SectionTitle>Pin Size / Scale</SectionTitle>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {Math.round((selectedAnno.size || 1) * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.4}
-                        max={3}
-                        step={0.1}
-                        value={selectedAnno.size || 1}
-                        onChange={(e) =>
-                          props.updateAnnoField &&
-                          props.updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
-                        }
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <SectionTitle>Pin Label</SectionTitle>
-                      <input
-                        type="text"
-                        value={selectedAnno.label || ''}
-                        onChange={(e) => updateAnnoLabel && updateAnnoLabel(selectedAnno.id, e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/60 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-100"
-                        placeholder="Squad note..."
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'vehicle' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <SectionTitle>Vehicle Size</SectionTitle>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {Math.round((selectedAnno.size || 1) * 100)}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0.4}
-                        max={3}
-                        step={0.1}
-                        value={selectedAnno.size || 1}
-                        onChange={(e) =>
-                          props.updateAnnoField &&
-                          props.updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
-                        }
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'smoke' && (
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <SectionTitle>Smoke Cloud Radius</SectionTitle>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">{selectedAnno.r || 15}m</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={5}
-                        max={80}
-                        step={2}
-                        value={selectedAnno.r || 15}
-                        onChange={(e) =>
-                          props.updateAnnoField &&
-                          props.updateAnnoField(selectedAnno.id, { r: parseInt(e.target.value, 10) })
-                        }
-                        className="w-full cursor-pointer accent-amber-400"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {selectedAnno.type === 'circle' && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <SectionTitle>Circle Radius / Size</SectionTitle>
-                      <span className="font-mono text-[10px] font-bold text-amber-400">
-                        {Math.round(
-                          selectedAnno.r ||
-                            (selectedAnno.points?.[1]
-                              ? Math.hypot(
-                                  selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                  selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                                )
-                              : 50),
-                        )}m
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={10}
-                      max={2500}
-                      step={10}
-                      value={Math.round(
-                        selectedAnno.r ||
-                          (selectedAnno.points?.[1]
-                            ? Math.hypot(
-                                selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                              )
-                            : 50),
-                      )}
-                      onChange={(e) =>
-                        props.updateAnnoRadius &&
-                        props.updateAnnoRadius(selectedAnno.id, parseInt(e.target.value, 10))
-                      }
-                      className="w-full cursor-pointer accent-amber-400"
-                    />
-                    <div className="grid grid-cols-5 gap-1">
-                      {[50, 150, 300, 500, 1000].map((sz) => (
-                        <button
-                          key={sz}
-                          onClick={() =>
-                            props.updateAnnoRadius && props.updateAnnoRadius(selectedAnno.id, sz)
-                          }
-                          className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
-                        >
-                          {sz}m
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'circle' || selectedAnno.type === 'compound' || selectedAnno.type === 'ridge') && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <SectionTitle>
-                        {selectedAnno.type === 'brush' ? 'Brush Stroke Thickness' : selectedAnno.type === 'arrow' ? 'Arrow Thickness & Size' : selectedAnno.type === 'line' ? 'Line Thickness' : selectedAnno.type === 'circle' ? 'Circle Line Thickness' : `${selectedAnno.type.toUpperCase()} Line Thickness`}
-                      </SectionTitle>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            const curr = selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)
-                            const next = Math.max(1, curr - 1)
-                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
-                          }}
-                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          title="Decrease thickness"
-                        >
-                          <Minus size={11} />
-                        </button>
-                        <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[32px] text-center">
-                          {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
-                        </span>
-                        <button
-                          onClick={() => {
-                            const curr = selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)
-                            const next = Math.min(40, curr + 1)
-                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
-                          }}
-                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
-                          title="Increase thickness"
-                        >
-                          <Plus size={11} />
-                        </button>
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={40}
-                      step={1}
-                      value={selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}
-                      onChange={(e) =>
-                        updateAnnoWidth && updateAnnoWidth(selectedAnno.id, parseInt(e.target.value, 10))
-                      }
-                      className="w-full cursor-pointer accent-amber-400"
-                    />
-                    <div className="grid grid-cols-5 gap-1">
-                      {[2, 4, 8, 14, 24].map((p) => (
-                        <button
-                          key={p}
-                          onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p)}
-                          className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                            (selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)) === p
-                              ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
-                              : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
-                          }`}
-                        >
-                          {p}px
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <ColorPickerGrid
-                  activeColor={selectedAnno.color || penColor}
-                  onSelectColor={selectColorHandler}
-                  label="Item Color"
+                {/*
+                  The same type-driven inspector the canvas panel uses, from
+                  the same registry. It used to be a hand-copied second version
+                  of these controls, which is how an object ended up editable in
+                  one panel and read-only in the other.
+                */}
+                <SelectionInspector
+                  anno={selectedAnno}
+                  props={propsFor(selectedAnno.type)}
+                  onChange={(patch) => {
+                    // Preserve this panel's original behaviour: choosing a
+                    // colour for the selected item also made it the default pen
+                    // colour, so the next object drawn matches. That handler
+                    // already writes the annotation, so do not write it twice.
+                    if (patch.color && selectColorHandler) {
+                      selectColorHandler(patch.color)
+                      return
+                    }
+                    updateAnnoField && updateAnnoField(selectedAnno.id, patch)
+                  }}
                 />
+
 
                 <button
                   onClick={() => removeAnno && removeAnno(selectedAnno.id)}

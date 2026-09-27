@@ -1,5 +1,19 @@
 import { MAP_TOURNAMENT_CONFIGS } from '../data/tournament'
 import { getTeam } from '../data/teams'
+import {
+  rotOf,
+  sizeOf,
+  opacityOf,
+  widthOf,
+  radiusOf,
+  degToRad,
+  pivotOf,
+  fovRange,
+  fovHalfAngle,
+  fovFacing,
+  polylineLength,
+  formatDistance,
+} from './geometry'
 
 export const STAGE_RADII = [2280, 1485, 740, 370, 185, 92.5, 46, 23]
 export const STAGE_DIAMETERS = [4560, 2970, 1480, 740, 370, 185, 92, 46]
@@ -78,6 +92,83 @@ function arrowHead(ctx, p, q, size = 16, S = 1) {
   ctx.restore()
 }
 
+/**
+ * Draw an arrow head at `p` pointing along the line p->q.
+ * Passing the same two points in reverse is how a double-headed arrow is made,
+ * which is why this takes a direction rather than assuming "forward".
+ */
+function arrowHeadAt(ctx, p, q, size, S) {
+  arrowHead(ctx, p, q, size, S)
+}
+
+/**
+ * A double-headed arrow: one shaft, a head at each end.
+ * Both heads are pushed back along the shaft so the tips do not overhang the
+ * endpoints, which is what makes it read as a measurement/charge direction.
+ */
+function drawDoubleArrow(ctx, P, width, S) {
+  const headLen = Math.max(14, width * 3.5) * S
+  const len = Math.hypot(P[1][0] - P[0][0], P[1][1] - P[0][1])
+  if (len < 1) return
+  const ux = (P[1][0] - P[0][0]) / len
+  const uy = (P[1][1] - P[0][1]) / len
+  // Shorten the shaft so the shaft ends exactly where the heads begin.
+  const inset = Math.min(headLen * 0.8, len * 0.4)
+  const a = [P[0][0] + ux * inset, P[0][1] + uy * inset]
+  const b = [P[1][0] - ux * inset, P[1][1] - uy * inset]
+
+  ctx.save()
+  ctx.shadowColor = hexA(ctx.strokeStyle, 0.55)
+  ctx.shadowBlur = 7 * S
+  ctx.beginPath()
+  ctx.moveTo(a[0], a[1])
+  ctx.lineTo(b[0], b[1])
+  ctx.stroke()
+  ctx.shadowBlur = 0
+  arrowHeadAt(ctx, a, P[0], headLen / S, S)
+  arrowHeadAt(ctx, b, P[1], headLen / S, S)
+  ctx.restore()
+}
+
+/**
+ * Smooth a polyline with a Catmull-Rom-ish midpoint quadratic pass.
+ * A rotation path drawn freehand should read as a route, not as a scribble.
+ */
+function traceSmoothPath(ctx, P) {
+  if (P.length === 1) {
+    ctx.beginPath()
+    ctx.arc(P[0][0], P[0][1], 2, 0, Math.PI * 2)
+    return
+  }
+  ctx.beginPath()
+  ctx.moveTo(P[0][0], P[0][1])
+  for (let i = 1; i < P.length - 1; i++) {
+    const mx = (P[i][0] + P[i + 1][0]) / 2
+    const my = (P[i][1] + P[i + 1][1]) / 2
+    ctx.quadraticCurveTo(P[i][0], P[i][1], mx, my)
+  }
+  const last = P[P.length - 1]
+  ctx.lineTo(last[0], last[1])
+}
+
+/** Diagonal hatch fill clipped to the current path. Used by danger zones. */
+function hatchFill(ctx, pathFn, x, y, w, h, color, S, gap = 14) {
+  ctx.save()
+  pathFn()
+  ctx.clip()
+  ctx.strokeStyle = color
+  ctx.lineWidth = Math.max(1.5, 1.5 * S)
+  ctx.beginPath()
+  const step = gap * S
+  for (let i = -h; i < w + h; i += step) {
+    ctx.moveTo(x + i, y)
+    ctx.lineTo(x + i + h, y + h)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
+
 function planeGlyph(ctx, x, y, ang, color, S = 1) {
   ctx.save()
   ctx.translate(x, y)
@@ -116,9 +207,9 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.rect(x, y, w, h)
 }
 
-function plainLabel(ctx, text, x, y, color, fontSize = 11, S = 1) {
+function plainLabel(ctx, text, x, y, color, fontSize = 11, S = 1, weight = 800) {
   const fontPx = Math.max(11, Math.round(fontSize * S))
-  ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`
+  ctx.font = `${weight} ${fontPx}px Inter, system-ui, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
@@ -132,9 +223,9 @@ function plainLabel(ctx, text, x, y, color, fontSize = 11, S = 1) {
   ctx.fillText(text, x, y + 0.5 * S)
 }
 
-function label(ctx, text, x, y, color, bg = 'rgba(7,10,15,0.92)', fontSize = 11, S = 1) {
+function label(ctx, text, x, y, color, bg = 'rgba(7,10,15,0.92)', fontSize = 11, S = 1, weight = 800) {
   const fontPx = Math.max(11, Math.round(fontSize * S))
-  ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`
+  ctx.font = `${weight} ${fontPx}px Inter, system-ui, sans-serif`
   const tw = ctx.measureText(text).width
   const padX = 6 * S
   const padY = 9 * S
@@ -212,6 +303,57 @@ function drawVehicle(ctx, x, y, open, S = 1, scale = 1) {
   }
   ctx.restore()
 }
+
+/**
+ * Player marker: a numbered disc with a directional nose, so a coach can show
+ * facing as well as position. `label` carries the player number / callsign.
+ */
+function drawPlayer(ctx, x, y, txt, color, S = 1, scale = 1) {
+  const k = Math.max(0.3, Math.min(6, scale || 1)) * S
+  const r = 13 * k
+
+  ctx.save()
+  // Ground shadow, matching the pin and squad marker treatment.
+  ctx.beginPath()
+  ctx.ellipse(x, y + 3 * k, r * 0.85, r * 0.28, 0, 0, Math.PI * 2)
+  ctx.fillStyle = 'rgba(0,0,0,0.4)'
+  ctx.fill()
+
+  // Disc
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.lineWidth = Math.max(2, 2 * k)
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+
+  // Facing nose
+  ctx.beginPath()
+  ctx.moveTo(x, y - r)
+  ctx.lineTo(x - 4.5 * k, y - r - 6 * k)
+  ctx.lineTo(x + 4.5 * k, y - r - 6 * k)
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
+  ctx.lineWidth = Math.max(1.4, 1.4 * k)
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+
+  const text = String(txt ?? '')
+  if (text) {
+    ctx.font = `900 ${Math.max(9, Math.round(13 * k))}px Inter, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.lineWidth = Math.max(1.6, 1.6 * k)
+    ctx.strokeStyle = 'rgba(2,6,12,0.85)'
+    ctx.strokeText(text, x, y + 0.5 * k)
+    ctx.fillStyle = '#05070a'
+    ctx.fillText(text, x, y + 0.5 * k)
+  }
+  ctx.restore()
+}
+
 
 // In-memory cache for team logo images (keyed by logoUrl) so exports & live
 // render only fetch once per session instead of every frame.
@@ -574,10 +716,44 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
   ctx.restore()
 }
 
+/**
+ * Draw one annotation.
+ *
+ * Contract for every branch below (AGENTS.md "THE THREE CONCEPTS"):
+ *   - `a.points` are MAP METRES. `X`/`Y` are the only thing that turns them into
+ *     pixels, and they are derived from the live view, so the same stored data
+ *     is correct at any zoom / pan / export size.
+ *   - Every pixel size is multiplied by `S` so the on-screen view and the
+ *     high-resolution PNG export come out identical.
+ *   - `size` is a per-object multiplier layered on top of the type default, and
+ *     `opacity` is applied with globalAlpha so it works for strokes AND fills.
+ *   - `rot` is applied as a canvas rotation about the object's world-space
+ *     bounding-box centre. Because both the pivot and the angle live in world
+ *     space, the result is identical on screen and in the export.
+ */
 function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
   if (!a.points || !a.points.length || a.hidden) return
   const P = a.points.map((p) => [X(p[0]), Y(p[1])])
+  const size = sizeOf(a)
+  const alpha = opacityOf(a)
+  const rot = rotOf(a)
+
   ctx.save()
+
+  // Rotation: translate to the projected pivot, spin, translate back. The
+  // pivot comes from `pivotOf` (world metres) so it tracks the object under
+  // zoom, and the same helper drives hit-testing — which is what stops the
+  // selection box drifting away from the thing it is framing.
+  if (rot) {
+    const [pvx, pvy] = pivotOf(a)
+    const pxp = X(pvx)
+    const pyp = Y(pvy)
+    ctx.translate(pxp, pyp)
+    ctx.rotate(rot)
+    ctx.translate(-pxp, -pyp)
+  }
+
+  if (alpha < 1) ctx.globalAlpha = alpha
   ctx.strokeStyle = a.color
   ctx.fillStyle = a.color
   ctx.lineCap = 'round'
@@ -588,24 +764,22 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
   if (a.type === 'brush') {
     if (P.length < 2) {
       ctx.beginPath()
-      ctx.arc(P[0][0], P[0][1], (a.width || 3.5) * S * 0.5, 0, Math.PI * 2)
+      ctx.arc(P[0][0], P[0][1], Math.max(2, widthOf(a) * size * 0.5 * S), 0, Math.PI * 2)
       ctx.fill()
     } else {
-      ctx.globalAlpha = 0.88
-      ctx.lineWidth = Math.max(2.0, (a.width || 3.5) * S)
-      ctx.beginPath()
-      ctx.moveTo(P[0][0], P[0][1])
-      for (let i = 1; i < P.length; i++) ctx.lineTo(P[i][0], P[i][1])
+      ctx.globalAlpha = alpha * 0.88
+      ctx.lineWidth = Math.max(2.0, widthOf(a) * size * S)
+      traceSmoothPath(ctx, P)
       ctx.stroke()
     }
   } else if (a.type === 'line' && P.length > 1) {
-    ctx.lineWidth = Math.max(2.0, (a.width || 3.5) * S)
+    ctx.lineWidth = Math.max(2.0, widthOf(a) * size * S)
     ctx.beginPath()
     ctx.moveTo(P[0][0], P[0][1])
     ctx.lineTo(P[1][0], P[1][1])
     ctx.stroke()
   } else if (a.type === 'arrow' && P.length > 1) {
-    const w = a.width || 4.0
+    const w = widthOf(a, 4) * size
     ctx.lineWidth = Math.max(2.0, w * S)
     ctx.shadowColor = hexA(a.color, 0.6)
     ctx.shadowBlur = 8 * S
@@ -615,20 +789,59 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     ctx.stroke()
     ctx.shadowBlur = 0
     arrowHead(ctx, P[0], P[1], Math.max(14, w * 3.5), S)
+  } else if (a.type === 'arrow2' && P.length > 1) {
+    drawDoubleArrow(ctx, P, widthOf(a, 4) * size, S)
+  } else if (a.type === 'rotation' && P.length > 0) {
+    // A rotation path is a freehand route: smoothed, dashed, and finished with
+    // an arrowhead so the direction of travel is unambiguous.
+    const w = widthOf(a, 4) * size
+    ctx.lineWidth = Math.max(2.0, w * S)
+    if (a.dashed !== false) ctx.setLineDash([14 * S, 9 * S])
+    traceSmoothPath(ctx, P)
+    ctx.stroke()
+    ctx.setLineDash([])
+    if (P.length > 1) {
+      arrowHead(ctx, P[P.length - 2], P[P.length - 1], Math.max(14, w * 3.5), S)
+    }
+    if (a.label) label(ctx, a.label, P[0][0], P[0][1] - 14 * S, a.color, 'rgba(7,10,15,0.92)', 11, S)
+  } else if (a.type === 'measure' && P.length > 1) {
+    // Measurement line: end caps plus the live distance, in metres, because
+    // that is the unit the whole tactical map is reasoned in.
+    const w = widthOf(a, 2) * size
+    ctx.lineWidth = Math.max(1.5, w * S)
+    const capLen = 10 * S
+    const ang = Math.atan2(P[1][1] - P[0][1], P[1][0] - P[0][0])
+    const nx = Math.cos(ang + Math.PI / 2) * capLen
+    const ny = Math.sin(ang + Math.PI / 2) * capLen
+    ctx.beginPath()
+    ctx.moveTo(P[0][0], P[0][1])
+    ctx.lineTo(P[1][0], P[1][1])
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(P[0][0] - nx, P[0][1] - ny)
+    ctx.lineTo(P[0][0] + nx, P[0][1] + ny)
+    ctx.moveTo(P[1][0] - nx, P[1][1] - ny)
+    ctx.lineTo(P[1][0] + nx, P[1][1] + ny)
+    ctx.stroke()
+
+    const midX = (P[0][0] + P[1][0]) / 2
+    const midY = (P[0][1] + P[1][1]) / 2
+    const dist = polylineLength(a.points)
+    const text = a.label ? `${a.label} · ${formatDistance(dist)}` : formatDistance(dist)
+    label(ctx, text, midX, midY - 12 * S, a.color, 'rgba(7,10,15,0.94)', 12, S)
   } else if ((a.type === 'flight' || a.type === 'flight1' || a.type === 'flight2') && P.length > 1) {
     const [p0, p1] = a.points
-    const dx = p1[0] - p0[0]
-    const dy = p1[1] - p0[1]
-    const len = Math.hypot(dx, dy) || 1
 
     ctx.save()
 
-    // Main Flight Vector Line (Alternating Red-White)
-    ctx.lineWidth = Math.max(4.0, 4.0 * S)
+    // Main Flight Vector Line (alternating accent / white, so it stays legible
+    // over any map art). The accent is user-editable; the white band is what
+    // gives the path its dashed read.
+    ctx.lineWidth = Math.max(4.0, widthOf(a, 4) * size * S)
     ctx.lineCap = 'butt'
 
-    // Pass 1: Red Segments
-    ctx.strokeStyle = '#ef4444'
+    // Pass 1: accent segments
+    ctx.strokeStyle = a.color || '#ef4444'
     ctx.setLineDash([20 * S, 20 * S])
     ctx.lineDashOffset = 0
     ctx.beginPath()
@@ -636,7 +849,7 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     ctx.lineTo(P[1][0], P[1][1])
     ctx.stroke()
 
-    // Pass 2: White Segments
+    // Pass 2: white segments
     ctx.strokeStyle = '#ffffff'
     ctx.setLineDash([20 * S, 20 * S])
     ctx.lineDashOffset = 20 * S
@@ -653,14 +866,14 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     ctx.restore()
 
   } else if (a.type === 'smoke' && P.length > 0) {
-    const rWorld = typeof a.r === 'number' && a.r > 0 ? a.r : 15
+    const rWorld = radiusOf(a) || 15 * size
     const r = Math.max(rWorld * (X.mapScale || 1), 4 * S)
     ctx.beginPath()
     ctx.arc(P[0][0], P[0][1], r, 0, Math.PI * 2)
-    ctx.fillStyle = hexA(a.color || '#cbd5e1', typeof a.opacity === 'number' ? a.opacity : 0.35)
+    ctx.fillStyle = hexA(a.color || '#cbd5e1', Math.max(0.05, alpha * 0.7))
     ctx.fill()
     ctx.strokeStyle = a.color || '#cbd5e1'
-    ctx.lineWidth = Math.max(2.0, (a.width || 2.0) * S)
+    ctx.lineWidth = Math.max(2.0, widthOf(a, 2) * size * S)
     ctx.setLineDash([])
     ctx.stroke()
     if (a.label) {
@@ -668,7 +881,7 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     }
 
   } else if (a.type === 'ridge' && P.length > 1) {
-    ctx.lineWidth = Math.max(2.0, (a.width || 3.0) * S)
+    ctx.lineWidth = Math.max(2.0, widthOf(a, 3) * size * S)
     ctx.strokeStyle = a.color || '#f59e0b'
     ctx.setLineDash([])
     ctx.beginPath()
@@ -682,15 +895,15 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
       label(ctx, a.label, midX, midY - 10 * S, a.color || '#f59e0b', 'rgba(7,10,15,0.92)', 10, S)
     }
 
-  } else if (a.type === 'compound' && P.length > 1) {
+  } else if ((a.type === 'compound' || a.type === 'rect') && P.length > 1) {
     const x = Math.min(P[0][0], P[1][0])
     const y = Math.min(P[0][1], P[1][1])
     const w = Math.abs(P[1][0] - P[0][0])
     const h = Math.abs(P[1][1] - P[0][1])
     ctx.setLineDash([])
-    ctx.lineWidth = Math.max(2.0, (a.width || 2.5) * S)
+    ctx.lineWidth = Math.max(2.0, widthOf(a, 2.5) * size * S)
     ctx.strokeStyle = a.color
-    ctx.fillStyle = hexA(a.color, typeof a.opacity === 'number' ? a.opacity : 0.10)
+    ctx.fillStyle = hexA(a.color, alpha)
     ctx.beginPath()
     roundRectPath(ctx, x, y, w, h, 4 * S)
     ctx.fill()
@@ -698,22 +911,120 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     if (a.label) {
       label(ctx, a.label, x + w / 2, y + h / 2, a.color, 'rgba(7,10,15,0.92)', 10, S)
     }
+  } else if (a.type === 'danger' && P.length > 0) {
+    // Danger zone: a red keep-out area. Drawn as a circle by default, or as a
+    // freeform outline when the user traced one with the pen.
+    const isOutline = !!(a.outline && a.points.length > 1)
+    const circleR = Math.max((radiusOf(a) || 200) * size * (X.mapScale || 1), 4 * S)
+
+    const outlinePath = () => {
+      if (isOutline) {
+        ctx.beginPath()
+        ctx.moveTo(P[0][0], P[0][1])
+        for (let i = 1; i < P.length; i++) ctx.lineTo(P[i][0], P[i][1])
+        ctx.closePath()
+      } else {
+        ctx.beginPath()
+        ctx.arc(P[0][0], P[0][1], circleR, 0, Math.PI * 2)
+      }
+    }
+
+    // Screen-space box of the shape, so the hatch can be clipped to it.
+    const bx = isOutline
+      ? { minX: Math.min(...P.map((p) => p[0])), minY: Math.min(...P.map((p) => p[1])), maxX: Math.max(...P.map((p) => p[0])), maxY: Math.max(...P.map((p) => p[1])) }
+      : { minX: P[0][0] - circleR, minY: P[0][1] - circleR, maxX: P[0][0] + circleR, maxY: P[0][1] + circleR }
+
+    ctx.setLineDash([])
+    outlinePath()
+    ctx.fillStyle = hexA(a.color || '#ef4444', alpha)
+    ctx.fill()
+
+    if (a.hatched !== false) {
+      hatchFill(
+        ctx,
+        outlinePath,
+        bx.minX,
+        bx.minY,
+        bx.maxX - bx.minX,
+        bx.maxY - bx.minY,
+        hexA(a.color || '#ef4444', Math.min(0.55, alpha + 0.3)),
+        S,
+        12,
+      )
+    }
+
+    ctx.lineWidth = Math.max(2.0, widthOf(a, 2.5) * size * S)
+    ctx.strokeStyle = a.color || '#ef4444'
+    ctx.setLineDash([10 * S, 6 * S])
+    outlinePath()
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    if (a.label) {
+      label(ctx, a.label, (bx.minX + bx.maxX) / 2, (bx.minY + bx.maxY) / 2, '#ffffff', hexA(a.color || '#ef4444', 0.9), 11, S)
+    }
+  } else if (a.type === 'fov' && P.length > 0) {
+    // Vision / FOV cone: a wedge from the apex along the drag direction,
+    // widened by the `angle` property and lengthened by `range`.
+    const half = fovHalfAngle(a)
+    // Local angle only. The canvas is ALREADY spun by `rot` about the pivot
+    // (see the transform at the top of drawAnno), and for a cone that pivot is
+    // the apex, so adding rotOf(a) here would spin the wedge a second time and
+    // send a 45 degree cone to 90. Geometry agrees: `fovFacing` is local.
+    const facing = fovFacing(a)
+    const range = Math.max(fovRange(a) * size * (X.mapScale || 1), 4 * S)
+    const ax = P[0][0]
+    const ay = P[0][1]
+
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.moveTo(ax, ay)
+    // Screen Y grows downward, so a counter-clockwise canvas sweep is the
+    // correct direction for increasing world angle. Going through the facing
+    // angle guarantees the arc always covers the wedge, no matter the zoom.
+    ctx.arc(ax, ay, range, facing - half, facing + half, false)
+    ctx.closePath()
+    ctx.fillStyle = hexA(a.color || '#38bdf8', alpha)
+    ctx.fill()
+    ctx.lineWidth = Math.max(1.5, widthOf(a, 2) * size * S)
+    ctx.strokeStyle = a.color || '#38bdf8'
+    ctx.setLineDash([9 * S, 6 * S])
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    // Apex pip so it is obvious where the observer is standing.
+    ctx.beginPath()
+    ctx.arc(ax, ay, Math.max(3, 4 * S), 0, Math.PI * 2)
+    ctx.fillStyle = a.color || '#38bdf8'
+    ctx.fill()
+
+    if (a.label) {
+      label(
+        ctx,
+        a.label,
+        ax + Math.cos(facing) * range * 0.66,
+        ay + Math.sin(facing) * range * 0.66,
+        a.color || '#38bdf8',
+        'rgba(7,10,15,0.92)',
+        11,
+        S,
+      )
+    }
   } else if (a.type === 'circle' && P.length > 0) {
-    const p0 = a.points[0]
-    const p1 = a.points[1] || a.points[0]
-    const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
-    const rWorld = typeof a.r === 'number' && a.r > 0 ? a.r : (dist || 50)
-    const r = Math.max(rWorld * (X.mapScale || 1), 3)
+    const rWorld = radiusOf(a)
+    const r = Math.max(rWorld > 0 ? rWorld * size * (X.mapScale || 1) : 3, 3)
     const cx = P[0][0]
     const cy = P[0][1]
 
-    const strokeWidth = typeof a.width === 'number' && a.width > 0 ? a.width : 3.5
-    const alpha = typeof a.opacity === 'number' ? Math.max(0, Math.min(1, a.opacity)) : 0.12
+    const strokeWidth = widthOf(a, 3.5)
+    // A circle's opacity controls the FILL; the outline stays legible so the
+    // boundary is never lost on a busy map.
+    const fillAlpha = typeof a.opacity === 'number' ? Math.max(0, Math.min(1, a.opacity)) : 0.12
 
     ctx.setLineDash([])
-    ctx.lineWidth = Math.max(1.0, strokeWidth * S)
+    ctx.lineWidth = Math.max(1.0, strokeWidth * size * S)
     ctx.strokeStyle = a.color
-    ctx.fillStyle = hexA(a.color, alpha)
+    ctx.fillStyle = hexA(a.color, fillAlpha)
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
     ctx.fill()
@@ -723,96 +1034,25 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
       label(ctx, a.label, cx, cy - r - 8 * S, a.color, 'rgba(7,10,15,0.92)', 10, S)
     }
   } else if (a.type === 'text' && P.length > 0) {
-    const fs = a.fontSize || 20
-    const alpha = typeof a.opacity === 'number' ? Math.max(0.05, Math.min(1, a.opacity)) : 1
+    const fs = (a.fontSize || 20) * size
+    const weight = a.fontWeight || 800
+    const textAlpha = Math.max(0.05, alpha)
     ctx.save()
-    ctx.globalAlpha = alpha
+    ctx.globalAlpha = textAlpha
     if (a.plainText) {
-      plainLabel(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, fs, S)
+      plainLabel(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, fs, S, weight)
     } else {
-      label(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, 'rgba(7,10,15,0.92)', fs, S)
+      label(ctx, a.label || 'Note', P[0][0], P[0][1], a.color, 'rgba(7,10,15,0.92)', fs, S, weight)
     }
     ctx.restore()
   } else if (a.type === 'team' && P.length > 0) {
-    drawTeam(ctx, a, P[0][0], P[0][1], S, Z)
+    drawTeam(ctx, a, P[0][0], P[0][1], S * size, Z)
   } else if (a.type === 'pin') {
-    drawPin(ctx, P[0][0], P[0][1], a.label || '', a.color, S, a.size || 1)
+    drawPin(ctx, P[0][0], P[0][1], a.label || '', a.color, S, size)
+  } else if (a.type === 'player') {
+    drawPlayer(ctx, P[0][0], P[0][1], a.label || '', a.color, S, size)
   } else if (a.type === 'vehicle') {
-    drawVehicle(ctx, P[0][0], P[0][1], !!a.open, S, a.size || 1)
-  }
-
-  // Draw Glowing Cyan Selection Aura / Bounding Box when annotation is selected
-  if (isSelected) {
-    ctx.save()
-    if (a.type === 'circle' && P.length > 0) {
-      const p0 = a.points[0]
-      const p1 = a.points[1] || a.points[0]
-      const dist = Math.hypot(p1[0] - p0[0], p1[1] - p0[1])
-    const rWorld = typeof a.r === 'number' && a.r > 0 ? a.r : (dist || 50)
-      const r = Math.max(rWorld * (X.mapScale || 1), 3)
-      const cx = P[0][0]
-      const cy = P[0][1]
-      ctx.strokeStyle = '#00E5FF'
-      ctx.lineWidth = Math.max(2.5, 2.5 * S)
-      ctx.setLineDash([6 * S, 4 * S])
-      ctx.shadowColor = '#00E5FF'
-      ctx.shadowBlur = 12 * S
-      ctx.beginPath()
-      ctx.arc(cx, cy, r + 4 * S, 0, Math.PI * 2)
-      ctx.stroke()
-      ctx.setLineDash([])
-      ctx.fillStyle = '#00E5FF'
-      ctx.beginPath()
-      ctx.arc(cx + r, cy, 6 * S, 0, Math.PI * 2)
-      ctx.fill()
-    } else if (a.type === 'text' && P.length > 0) {
-      const fs = a.fontSize || 20
-      const fontPx = Math.max(11, Math.round(fs * S))
-      ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`
-      const tw = ctx.measureText(a.label || 'Note').width
-      const padX = 10 * S
-      const padY = (fs * 0.45) * S
-      const h = (fs + 8) * S
-      const bx = P[0][0] - tw / 2 - padX
-      const by = P[0][1] - padY
-      const bw = tw + padX * 2
-      ctx.strokeStyle = '#00E5FF'
-      ctx.lineWidth = Math.max(2.0, 2.0 * S)
-      ctx.setLineDash([5 * S, 4 * S])
-      ctx.shadowColor = '#00E5FF'
-      ctx.shadowBlur = 10 * S
-      ctx.strokeRect(bx, by, bw, h)
-
-      // Small handles on corners
-      ctx.fillStyle = '#00E5FF'
-      ctx.fillRect(bx - 3 * S, by - 3 * S, 6 * S, 6 * S)
-      ctx.fillRect(bx + bw - 3 * S, by - 3 * S, 6 * S, 6 * S)
-      ctx.fillRect(bx - 3 * S, by + h - 3 * S, 6 * S, 6 * S)
-      ctx.fillRect(bx + bw - 3 * S, by + h - 3 * S, 6 * S, 6 * S)
-    } else if (P.length > 0) {
-      ctx.strokeStyle = '#00E5FF'
-      ctx.lineWidth = Math.max(2.5, 2.5 * S)
-      ctx.setLineDash([6 * S, 4 * S])
-      ctx.shadowColor = '#00E5FF'
-      ctx.shadowBlur = 12 * S
-      if (P.length === 1) {
-        ctx.beginPath()
-        ctx.arc(P[0][0], P[0][1], 18 * S, 0, Math.PI * 2)
-        ctx.stroke()
-      } else {
-        ctx.beginPath()
-        ctx.moveTo(P[0][0], P[0][1])
-        for (let i = 1; i < P.length; i++) ctx.lineTo(P[i][0], P[i][1])
-        ctx.stroke()
-        for (const pt of [P[0], P[P.length - 1]]) {
-          ctx.fillStyle = '#00E5FF'
-          ctx.beginPath()
-          ctx.arc(pt[0], pt[1], 5 * S, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
-    }
-    ctx.restore()
+    drawVehicle(ctx, P[0][0], P[0][1], !!a.open, S, size)
   }
 
   ctx.restore()
