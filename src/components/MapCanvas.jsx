@@ -17,16 +17,16 @@ function distToSegment(px, py, vx, vy, wx, wy) {
 
 import { COLOR_PRESETS, FONT_PRESETS, STROKE_WIDTH_PRESETS, OPACITY_PRESETS } from '../data/colors'
 
-function tempAnno(it, penColor) {
+function tempAnno(it, penColor, penWidth = 3.5) {
   if (!it) return null
   if (it.mode === 'stroke' && it.pts && it.pts.length > 0)
-    return { id: '_t', type: 'brush', color: penColor, points: it.pts }
-  if (it.mode === 'seg') return { id: '_t', type: it.kind, color: penColor, points: [it.start, it.end || it.start] }
+    return { id: '_t', type: 'brush', color: penColor, width: penWidth, points: it.pts }
+  if (it.mode === 'seg') return { id: '_t', type: it.kind, color: penColor, width: penWidth, points: [it.start, it.end || it.start] }
   if (it.mode === 'compound')
-    return { id: '_t', type: 'compound', color: '#f97316', points: [it.start, it.end || it.start] }
+    return { id: '_t', type: 'compound', color: '#f97316', width: penWidth, points: [it.start, it.end || it.start] }
   if ((it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') && it.start) {
     const color = it.mode === 'flight2' ? '#a855f7' : '#38bdf8'
-    return { id: '_t', type: it.mode, color, points: [it.start, it.end || it.start] }
+    return { id: '_t', type: it.mode, color, width: penWidth, points: [it.start, it.end || it.start] }
   }
   return null
 }
@@ -57,6 +57,9 @@ export default function MapCanvas(props) {
     activeTool,
     setActiveTool,
     penColor,
+    setPenColor,
+    penWidth = 3.5,
+    setPenWidth,
     handleColorSelect,
     updateAnnoFontSize,
     updateAnnoWidth,
@@ -170,7 +173,7 @@ export default function MapCanvas(props) {
           showContours: p.showContours ?? false,
           showBlueZoneMask: p.showBlueZoneMask ?? true,
           view: viewRef.current,
-          temp: tempAnno(interRef.current, p.penColor),
+          temp: tempAnno(interRef.current, p.penColor, p.penWidth || 3.5),
           t: timestamp,
           viewportWidth: w,
           exportScaleFactor: 1.0,
@@ -700,8 +703,9 @@ export default function MapCanvas(props) {
     }
 
     const pc = propsRef.current.penColor
+    const pw = propsRef.current.penWidth || 3.5
     if (it.mode === 'stroke' && it.pts.length > 1) {
-      propsRef.current.addAnno({ id: uid(), type: 'brush', color: pc, points: it.pts })
+      propsRef.current.addAnno({ id: uid(), type: 'brush', color: pc, width: pw, points: it.pts })
       propsRef.current.pushHistory()
     } else if (
       (it.mode === 'seg' ||
@@ -714,12 +718,12 @@ export default function MapCanvas(props) {
     ) {
       let a
       if (it.mode === 'compound') {
-        a = { id: uid(), type: 'compound', color: '#f97316', points: [it.start, it.end] }
+        a = { id: uid(), type: 'compound', color: '#f97316', width: pw || 2.5, points: [it.start, it.end] }
       } else if (it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') {
         const color = it.mode === 'flight2' ? '#a855f7' : '#38bdf8'
         a = { id: uid(), type: it.mode, color, points: [it.start, it.end] }
       } else {
-        a = { id: uid(), type: it.kind, color: pc, points: [it.start, it.end] }
+        a = { id: uid(), type: it.kind, color: pc, width: pw || (it.kind === 'arrow' ? 4 : 3.5), points: [it.start, it.end] }
       }
       propsRef.current.addAnno(a)
       propsRef.current.pushHistory()
@@ -1007,6 +1011,61 @@ export default function MapCanvas(props) {
                   className="absolute inset-0 h-full w-full opacity-0 cursor-pointer"
                 />
               </label>
+            </div>
+          </div>
+
+          {/* Active Tool Line & Size Thickness (Brush, Line, Arrow, Circle, Ridge) */}
+          <div className="space-y-1.5 rounded-xl border border-slate-800/50 bg-slate-950/40 p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400 flex items-center gap-1.5">
+                <PenLine size={11} className="text-amber-400" /> Tool Thickness / Size
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPenWidth && setPenWidth((w) => Math.max(1, (w || 3.5) - 1))}
+                  className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  title="Decrease default size"
+                >
+                  <Minus size={11} />
+                </button>
+                <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[32px] text-center">
+                  {penWidth || 3.5}px
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPenWidth && setPenWidth((w) => Math.min(40, (w || 3.5) + 1))}
+                  className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  title="Increase default size"
+                >
+                  <Plus size={11} />
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={30}
+              step={1}
+              value={penWidth || 3.5}
+              onChange={(e) => setPenWidth && setPenWidth(parseInt(e.target.value, 10))}
+              className="w-full cursor-pointer accent-amber-400"
+            />
+            <div className="grid grid-cols-5 gap-1">
+              {[2, 4, 8, 14, 22].map((sz) => (
+                <button
+                  key={sz}
+                  type="button"
+                  onClick={() => setPenWidth && setPenWidth(sz)}
+                  className={`rounded-lg border py-1 text-[9px] font-bold transition-all ${
+                    (penWidth || 3.5) === sz
+                      ? 'border-amber-400/50 bg-amber-400/20 text-amber-300 shadow-sm'
+                      : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                  }`}
+                >
+                  {sz}px
+                </button>
+              ))}
             </div>
           </div>
 
@@ -1876,9 +1935,11 @@ export default function MapCanvas(props) {
                 )}
 
                 {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'compound' || selectedAnno.type === 'ridge') && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Line Thickness</span>
+                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
+                        {selectedAnno.type === 'brush' ? 'Brush Stroke Thickness' : selectedAnno.type === 'arrow' ? 'Arrow Thickness & Size' : selectedAnno.type === 'line' ? 'Line Thickness' : `${selectedAnno.type.toUpperCase()} Line Thickness`}
+                      </span>
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => {
@@ -1888,6 +1949,7 @@ export default function MapCanvas(props) {
                             requestRender()
                           }}
                           className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          title="Decrease thickness"
                         >
                           <Minus size={11} />
                         </button>
@@ -1897,11 +1959,12 @@ export default function MapCanvas(props) {
                         <button
                           onClick={() => {
                             const curr = selectedAnno.width || 3.5
-                            const next = Math.min(30, curr + 1)
+                            const next = Math.min(40, curr + 1)
                             updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
                             requestRender()
                           }}
                           className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          title="Increase thickness"
                         >
                           <Plus size={11} />
                         </button>
@@ -1910,7 +1973,7 @@ export default function MapCanvas(props) {
                     <input
                       type="range"
                       min={1}
-                      max={30}
+                      max={40}
                       step={1}
                       value={selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}
                       onChange={(e) =>
@@ -1918,8 +1981,8 @@ export default function MapCanvas(props) {
                       }
                       className="w-full cursor-pointer accent-amber-400"
                     />
-                    <div className="grid grid-cols-4 gap-1">
-                      {[2, 4, 8, 16].map((p) => (
+                    <div className="grid grid-cols-5 gap-1">
+                      {[2, 4, 8, 14, 24].map((p) => (
                         <button
                           key={p}
                           onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p)}

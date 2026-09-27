@@ -63,6 +63,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [activeTool, setActiveTool] = useState('select')
   const [penColor, setPenColor] = useState('#FBBF24')
+  const [penWidth, setPenWidth] = useState(3.5)
   const [layers, setLayers] = useState({ flight: true, brush: true, arrow: true, pin: true, vehicle: true, compound: true, smoke: true })
   const [training, setTraining] = useState(null)
   const [collapsed, setCollapsed] = useState(false)
@@ -948,6 +949,8 @@ export default function App() {
             showBlueZoneMask={showBlueZoneMask}
             setShowBlueZoneMask={setShowBlueZoneMask}
             handleColorSelect={handleColorSelect}
+            penWidth={penWidth}
+            setPenWidth={setPenWidth}
             updateAnnoFontSize={updateAnnoFontSize}
             updateAnnoWidth={updateAnnoWidth}
             updateAnnoLabel={updateAnnoLabel}
@@ -973,6 +976,8 @@ export default function App() {
                 setActiveTool={(t) => { setActiveTool(t); setMobileSidebarOpen(false) }}
                 penColor={penColor}
                 setPenColor={setPenColor}
+                penWidth={penWidth}
+                setPenWidth={setPenWidth}
                 layers={layers}
                 toggleLayer={toggleLayer}
                 onUndo={onUndo}
@@ -1051,6 +1056,9 @@ export default function App() {
             activeTool={activeTool}
             setActiveTool={setActiveTool}
             penColor={penColor}
+            setPenColor={setPenColor}
+            penWidth={penWidth}
+            setPenWidth={setPenWidth}
             handleColorSelect={handleColorSelect}
             updateAnnoFontSize={updateAnnoFontSize}
             updateAnnoWidth={updateAnnoWidth}

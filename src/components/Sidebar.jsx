@@ -22,6 +22,7 @@ import {
   Trash2,
   X,
   CircleDot,
+  Plus,
 } from 'lucide-react'
 import TrainingPanel from './TrainingPanel'
 import ZonePanel from './ZonePanel'
@@ -517,15 +518,41 @@ export default function Sidebar(props) {
                 {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'circle' || selectedAnno.type === 'compound' || selectedAnno.type === 'ridge') && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <SectionTitle>Line Thickness</SectionTitle>
-                      <span className="font-mono text-[10px] font-bold text-amber-400">
-                        {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
-                      </span>
+                      <SectionTitle>
+                        {selectedAnno.type === 'brush' ? 'Brush Stroke Thickness' : selectedAnno.type === 'arrow' ? 'Arrow Thickness & Size' : selectedAnno.type === 'line' ? 'Line Thickness' : selectedAnno.type === 'circle' ? 'Circle Line Thickness' : `${selectedAnno.type.toUpperCase()} Line Thickness`}
+                      </SectionTitle>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            const curr = selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)
+                            const next = Math.max(1, curr - 1)
+                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
+                          }}
+                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          title="Decrease thickness"
+                        >
+                          <Minus size={11} />
+                        </button>
+                        <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[32px] text-center">
+                          {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
+                        </span>
+                        <button
+                          onClick={() => {
+                            const curr = selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)
+                            const next = Math.min(40, curr + 1)
+                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
+                          }}
+                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          title="Increase thickness"
+                        >
+                          <Plus size={11} />
+                        </button>
+                      </div>
                     </div>
                     <input
                       type="range"
                       min={1}
-                      max={30}
+                      max={40}
                       step={1}
                       value={selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}
                       onChange={(e) =>
@@ -533,8 +560,8 @@ export default function Sidebar(props) {
                       }
                       className="w-full cursor-pointer accent-amber-400"
                     />
-                    <div className="grid grid-cols-4 gap-1">
-                      {[2, 4, 8, 16].map((p) => (
+                    <div className="grid grid-cols-5 gap-1">
+                      {[2, 4, 8, 14, 24].map((p) => (
                         <button
                           key={p}
                           onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p)}
