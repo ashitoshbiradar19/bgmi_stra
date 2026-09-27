@@ -368,12 +368,12 @@ function drawEmblem(ctx, x, y, k, team) {
   const short = (team.short || team.name || 'T').slice(0, 3).toUpperCase()
   const id = team.id || ''
 
-  // Backing plate with brand gradient
-  const plate = ctx.createLinearGradient(x - 16 * k, y - 18 * k, x + 16 * k, y + 18 * k)
+  // Backing plate with brand gradient centered at (x, y)
+  const plate = ctx.createLinearGradient(x - 16 * k, y - 16 * k, x + 16 * k, y + 16 * k)
   plate.addColorStop(0, color2)
   plate.addColorStop(1, '#0a0a0f')
   ctx.beginPath()
-  roundRectPath(ctx, x - 16 * k, y - 18 * k, 32 * k, 32 * k, 8 * k)
+  roundRectPath(ctx, x - 16 * k, y - 16 * k, 32 * k, 32 * k, 8 * k)
   ctx.fillStyle = plate
   ctx.fill()
   ctx.lineWidth = Math.max(2.5, 2.5 * k)
@@ -389,33 +389,33 @@ function drawEmblem(ctx, x, y, k, team) {
       // Orange orangutan face
       ctx.fillStyle = '#ff7a00'
       ctx.beginPath()
-      ctx.arc(x, y - 2 * k, W, 0, Math.PI * 2)
+      ctx.arc(x, y, W, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#ffb066'
       ctx.beginPath()
-      ctx.ellipse(x, y - 6 * k, 7 * k, 5 * k, 0, 0, Math.PI * 2)
+      ctx.ellipse(x, y - 4 * k, 7 * k, 5 * k, 0, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#1a1a24'
       ctx.beginPath()
-      ctx.arc(x - 5 * k, y - 2 * k, 1.6 * k, 0, Math.PI * 2)
-      ctx.arc(x + 5 * k, y - 2 * k, 1.6 * k, 0, Math.PI * 2)
+      ctx.arc(x - 5 * k, y, 1.6 * k, 0, Math.PI * 2)
+      ctx.arc(x + 5 * k, y, 1.6 * k, 0, Math.PI * 2)
       ctx.fill()
       // nostrils
       ctx.beginPath()
-      ctx.ellipse(x - 1.5 * k, y + 1 * k, 1 * k, 1.2 * k, 0, 0, Math.PI * 2)
-      ctx.ellipse(x + 1.5 * k, y + 1 * k, 1 * k, 1.2 * k, 0, 0, Math.PI * 2)
+      ctx.ellipse(x - 1.5 * k, y + 3 * k, 1 * k, 1.2 * k, 0, 0, Math.PI * 2)
+      ctx.ellipse(x + 1.5 * k, y + 3 * k, 1 * k, 1.2 * k, 0, 0, Math.PI * 2)
       ctx.fill()
       // mouth grin
       ctx.strokeStyle = '#1a1a24'
       ctx.lineWidth = Math.max(1.2, 1.2 * k)
       ctx.beginPath()
-      ctx.arc(x, y + 2 * k, 4 * k, 0.15 * Math.PI, 0.85 * Math.PI)
+      ctx.arc(x, y + 4 * k, 4 * k, 0.15 * Math.PI, 0.85 * Math.PI)
       ctx.stroke()
       // ears
       ctx.fillStyle = '#ff7a00'
       ctx.beginPath()
-      ctx.arc(x - 11 * k, y - 2 * k, 3.5 * k, 0, Math.PI * 2)
-      ctx.arc(x + 11 * k, y - 2 * k, 3.5 * k, 0, Math.PI * 2)
+      ctx.arc(x - 11 * k, y, 3.5 * k, 0, Math.PI * 2)
+      ctx.arc(x + 11 * k, y, 3.5 * k, 0, Math.PI * 2)
       ctx.fill()
       break
     }
@@ -448,12 +448,12 @@ function drawEmblem(ctx, x, y, k, team) {
       // two horns
       ctx.fillStyle = '#e63946'
       ctx.beginPath()
-      ctx.moveTo(x - 8 * k, y - 8 * k)
-      ctx.quadraticCurveTo(x - 12 * k, y - 18 * k, x - 3 * k, y - 12 * k)
-      ctx.lineTo(x - 4 * k, y - 7 * k)
-      ctx.moveTo(x + 8 * k, y - 8 * k)
-      ctx.quadraticCurveTo(x + 12 * k, y - 18 * k, x + 3 * k, y - 12 * k)
-      ctx.lineTo(x + 4 * k, y - 7 * k)
+      ctx.moveTo(x - 8 * k, y - 6 * k)
+      ctx.quadraticCurveTo(x - 12 * k, y - 16 * k, x - 3 * k, y - 10 * k)
+      ctx.lineTo(x - 4 * k, y - 5 * k)
+      ctx.moveTo(x + 8 * k, y - 6 * k)
+      ctx.quadraticCurveTo(x + 12 * k, y - 16 * k, x + 3 * k, y - 10 * k)
+      ctx.lineTo(x + 4 * k, y - 5 * k)
       ctx.fill()
       // pentagram
       ctx.strokeStyle = '#e63946'
@@ -480,26 +480,26 @@ function drawEmblem(ctx, x, y, k, team) {
       // Golden shield with GEN
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.moveTo(x, y - 14 * k)
-      ctx.lineTo(x + 11 * k, y - 10 * k)
-      ctx.lineTo(x + 11 * k, y + 2 * k)
-      ctx.quadraticCurveTo(x + 11 * k, y + 12 * k, x, y + 15 * k)
-      ctx.quadraticCurveTo(x - 11 * k, y + 12 * k, x - 11 * k, y + 2 * k)
-      ctx.lineTo(x - 11 * k, y - 10 * k)
+      ctx.moveTo(x, y - 12 * k)
+      ctx.lineTo(x + 11 * k, y - 8 * k)
+      ctx.lineTo(x + 11 * k, y + 4 * k)
+      ctx.quadraticCurveTo(x + 11 * k, y + 14 * k, x, y + 17 * k)
+      ctx.quadraticCurveTo(x - 11 * k, y + 14 * k, x - 11 * k, y + 4 * k)
+      ctx.lineTo(x - 11 * k, y - 8 * k)
       ctx.closePath()
       ctx.fill()
       ctx.fillStyle = color2
       ctx.font = `900 ${Math.max(9, Math.round(11 * k))}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('GEN', x, y + 0.5 * k)
+      ctx.fillText('GEN', x, y + 1.5 * k)
       break
     }
     case 'k9': {
       // Navy shield with golden K / hound
       ctx.fillStyle = color2
       ctx.beginPath()
-      roundRectPath(ctx, x - 12 * k, y - 13 * k, 24 * k, 27 * k, 6 * k)
+      roundRectPath(ctx, x - 12 * k, y - 12 * k, 24 * k, 27 * k, 6 * k)
       ctx.fill()
       ctx.strokeStyle = color
       ctx.lineWidth = Math.max(2, 2 * k)
@@ -508,7 +508,7 @@ function drawEmblem(ctx, x, y, k, team) {
       ctx.font = `900 ${Math.max(15, Math.round(17 * k))}px Inter, sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('K9', x, y + 0.5 * k)
+      ctx.fillText('K9', x, y + 1.5 * k)
       break
     }
     case 'truerippers': {
@@ -531,12 +531,12 @@ function drawEmblem(ctx, x, y, k, team) {
       // Victory "V" purple crest
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.moveTo(x - 10 * k, y - 8 * k)
-      ctx.lineTo(x, y + 12 * k)
-      ctx.lineTo(x + 10 * k, y - 8 * k)
-      ctx.lineTo(x + 6 * k, y - 8 * k)
-      ctx.lineTo(x, y + 4 * k)
-      ctx.lineTo(x - 6 * k, y - 8 * k)
+      ctx.moveTo(x - 10 * k, y - 6 * k)
+      ctx.lineTo(x, y + 14 * k)
+      ctx.lineTo(x + 10 * k, y - 6 * k)
+      ctx.lineTo(x + 6 * k, y - 6 * k)
+      ctx.lineTo(x, y + 6 * k)
+      ctx.lineTo(x - 6 * k, y - 6 * k)
       ctx.closePath()
       ctx.fill()
       break
@@ -546,12 +546,12 @@ function drawEmblem(ctx, x, y, k, team) {
       // Purple energy bolt
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.moveTo(x + 2 * k, y - 13 * k)
-      ctx.lineTo(x - 6 * k, y + 2 * k)
-      ctx.lineTo(x - 1 * k, y + 2 * k)
-      ctx.lineTo(x - 2 * k, y + 13 * k)
-      ctx.lineTo(x + 6 * k, y - 2 * k)
-      ctx.lineTo(x + 1 * k, y - 2 * k)
+      ctx.moveTo(x + 2 * k, y - 11 * k)
+      ctx.lineTo(x - 6 * k, y + 4 * k)
+      ctx.lineTo(x - 1 * k, y + 4 * k)
+      ctx.lineTo(x - 2 * k, y + 15 * k)
+      ctx.lineTo(x + 6 * k, y)
+      ctx.lineTo(x + 1 * k, y)
       ctx.closePath()
       ctx.fill()
       break
@@ -560,26 +560,26 @@ function drawEmblem(ctx, x, y, k, team) {
       // Pixel block / 8-bit cube
       ctx.fillStyle = color
       ctx.beginPath()
-      roundRectPath(ctx, x - 9 * k, y - 11 * k, 18 * k, 22 * k, 3 * k)
+      roundRectPath(ctx, x - 9 * k, y - 9 * k, 18 * k, 22 * k, 3 * k)
       ctx.fill()
       ctx.fillStyle = color2
-      ctx.fillRect(x - 3 * k, y - 5 * k, 6 * k, 4 * k)
-      ctx.fillRect(x - 6 * k, y + 1 * k, 5 * k, 4 * k)
-      ctx.fillRect(x + 1 * k, y + 1 * k, 5 * k, 4 * k)
-      ctx.fillRect(x - 6 * k, y + 7 * k, 5 * k, 4 * k)
-      ctx.fillRect(x + 1 * k, y + 7 * k, 5 * k, 4 * k)
+      ctx.fillRect(x - 3 * k, y - 3 * k, 6 * k, 4 * k)
+      ctx.fillRect(x - 6 * k, y + 3 * k, 5 * k, 4 * k)
+      ctx.fillRect(x + 1 * k, y + 3 * k, 5 * k, 4 * k)
+      ctx.fillRect(x - 6 * k, y + 9 * k, 5 * k, 4 * k)
+      ctx.fillRect(x + 1 * k, y + 9 * k, 5 * k, 4 * k)
       break
     }
     case 'vasista': {
       // Red crest / laurel
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.arc(x, y - 2 * k, 5 * k, Math.PI, 0)
-      ctx.lineTo(x + 9 * k, y + 9 * k)
-      ctx.lineTo(x + 3 * k, y + 7 * k)
-      ctx.lineTo(x, y + 13 * k)
-      ctx.lineTo(x - 3 * k, y + 7 * k)
-      ctx.lineTo(x - 9 * k, y + 9 * k)
+      ctx.arc(x, y, 5 * k, Math.PI, 0)
+      ctx.lineTo(x + 9 * k, y + 11 * k)
+      ctx.lineTo(x + 3 * k, y + 9 * k)
+      ctx.lineTo(x, y + 15 * k)
+      ctx.lineTo(x - 3 * k, y + 9 * k)
+      ctx.lineTo(x - 9 * k, y + 11 * k)
       ctx.closePath()
       ctx.fill()
       break
@@ -589,13 +589,13 @@ function drawEmblem(ctx, x, y, k, team) {
       // Royal tri-crown
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.moveTo(x - 9 * k, y + 8 * k)
-      ctx.lineTo(x - 9 * k, y - 5 * k)
-      ctx.lineTo(x - 5 * k, y + 0 * k)
-      ctx.lineTo(x, y - 11 * k)
-      ctx.lineTo(x + 5 * k, y + 0 * k)
-      ctx.lineTo(x + 9 * k, y - 5 * k)
-      ctx.lineTo(x + 9 * k, y + 8 * k)
+      ctx.moveTo(x - 9 * k, y + 10 * k)
+      ctx.lineTo(x - 9 * k, y - 3 * k)
+      ctx.lineTo(x - 5 * k, y + 2 * k)
+      ctx.lineTo(x, y - 9 * k)
+      ctx.lineTo(x + 5 * k, y + 2 * k)
+      ctx.lineTo(x + 9 * k, y - 3 * k)
+      ctx.lineTo(x + 9 * k, y + 10 * k)
       ctx.closePath()
       ctx.fill()
       break
@@ -610,15 +610,15 @@ function drawEmblem(ctx, x, y, k, team) {
       // brand-colored corner chevrons so it still looks like a logo
       ctx.fillStyle = color
       ctx.beginPath()
-      ctx.moveTo(x - 16 * k, y - 18 * k)
-      ctx.lineTo(x - 16 * k, y - 10 * k)
-      ctx.lineTo(x - 8 * k, y - 18 * k)
+      ctx.moveTo(x - 16 * k, y - 16 * k)
+      ctx.lineTo(x - 16 * k, y - 8 * k)
+      ctx.lineTo(x - 8 * k, y - 16 * k)
       ctx.closePath()
       ctx.fill()
       ctx.beginPath()
-      ctx.moveTo(x + 16 * k, y + 18 * k)
-      ctx.lineTo(x + 16 * k, y + 10 * k)
-      ctx.lineTo(x + 8 * k, y + 18 * k)
+      ctx.moveTo(x + 16 * k, y + 16 * k)
+      ctx.lineTo(x + 16 * k, y + 8 * k)
+      ctx.lineTo(x + 8 * k, y + 16 * k)
       ctx.closePath()
       ctx.fill()
       break
@@ -636,9 +636,9 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
 
   ctx.save()
 
-  // Soft ground shadow
+  // Soft ground shadow centered under the plate
   ctx.beginPath()
-  ctx.ellipse(x, y + 3 * k, 16 * k, 6 * k, 0, 0, Math.PI * 2)
+  ctx.ellipse(x, y + 17 * k, 16 * k, 5 * k, 0, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(0,0,0,0.45)'
   ctx.fill()
 
@@ -669,10 +669,10 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
     if (cached && cached.width > 0) {
       ctx.save()
       ctx.beginPath()
-      roundRectPath(ctx, x - 16 * k, y - 18 * k, 32 * k, 32 * k, 8 * k)
+      roundRectPath(ctx, x - 16 * k, y - 16 * k, 32 * k, 32 * k, 8 * k)
       ctx.clip()
       ctx.fillStyle = color2
-      ctx.fillRect(x - 16 * k, y - 18 * k, 32 * k, 32 * k)
+      ctx.fillRect(x - 16 * k, y - 16 * k, 32 * k, 32 * k)
 
       // Preserve natural aspect ratio & center logo inside badge plate
       const iw = cached.width
@@ -682,7 +682,7 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
       const dw = iw * scale
       const dh = ih * scale
       const dx = x - dw / 2
-      const dy = (y - 2 * k) - dh / 2
+      const dy = y - dh / 2
 
       ctx.drawImage(cached, dx, dy, dw, dh)
       ctx.restore()
@@ -700,9 +700,9 @@ function drawTeam(ctx, a, x, y, S = 1, Z = 1) {
     ctx.font = `800 ${labelFontPx}px Inter, sans-serif`
     const tw = ctx.measureText(name).width
     const padX = 7 * k
-    const gapY = 3 * k
+    const gapY = 4 * k
     const labelH = labelFontPx + 6 * k
-    const labelY = y + 18 * k + gapY
+    const labelY = y + 16 * k + gapY
     ctx.fillStyle = 'rgba(7,10,15,0.92)'
     ctx.strokeStyle = color
     ctx.lineWidth = Math.max(1.0, 1.0 * k)
