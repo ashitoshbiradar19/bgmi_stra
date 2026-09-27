@@ -1531,27 +1531,74 @@ export default function MapCanvas(props) {
 
                 {selectedAnno.type === 'circle' && (
                   <div className="space-y-3">
+                    {/* Circle Radius / Size */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
                           Circle Radius / Size
                         </span>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          r = {Math.round(
-                            typeof selectedAnno.r === 'number' && selectedAnno.r > 0
-                              ? selectedAnno.r
-                              : (selectedAnno.points?.[1]
-                                ? Math.hypot(
-                                    selectedAnno.points[1][0] - selectedAnno.points[0][0],
-                                    selectedAnno.points[1][1] - selectedAnno.points[0][1],
-                                  )
-                                : 50),
-                          )}m
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const curr = Math.round(
+                                typeof selectedAnno.r === 'number' && selectedAnno.r > 0
+                                  ? selectedAnno.r
+                                  : (selectedAnno.points?.[1]
+                                    ? Math.hypot(
+                                        selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                        selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                                      )
+                                    : 50),
+                              )
+                              const next = Math.max(10, curr - 25)
+                              if (updateAnnoRadius) updateAnnoRadius(selectedAnno.id, next)
+                              else if (updateAnnoField) updateAnnoField(selectedAnno.id, { r: next })
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            title="Decrease Radius"
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[50px] text-center">
+                            r = {Math.round(
+                              typeof selectedAnno.r === 'number' && selectedAnno.r > 0
+                                ? selectedAnno.r
+                                : (selectedAnno.points?.[1]
+                                  ? Math.hypot(
+                                      selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                      selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                                    )
+                                  : 50),
+                            )}m
+                          </span>
+                          <button
+                            onClick={() => {
+                              const curr = Math.round(
+                                typeof selectedAnno.r === 'number' && selectedAnno.r > 0
+                                  ? selectedAnno.r
+                                  : (selectedAnno.points?.[1]
+                                    ? Math.hypot(
+                                        selectedAnno.points[1][0] - selectedAnno.points[0][0],
+                                        selectedAnno.points[1][1] - selectedAnno.points[0][1],
+                                      )
+                                    : 50),
+                              )
+                              const next = Math.min(3000, curr + 25)
+                              if (updateAnnoRadius) updateAnnoRadius(selectedAnno.id, next)
+                              else if (updateAnnoField) updateAnnoField(selectedAnno.id, { r: next })
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            title="Increase Radius"
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
                       </div>
                       <input
                         type="range"
-                        min={20}
+                        min={10}
                         max={2500}
                         step={10}
                         value={Math.round(
@@ -1595,16 +1642,41 @@ export default function MapCanvas(props) {
                       </div>
                     </div>
 
+                    {/* Circle Line Thickness / Stroke Size */}
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Thickness</span>
-                        <span className="font-mono text-[10px] font-bold text-amber-400">
-                          {selectedAnno.width || 3.5}px
-                        </span>
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Circle Line Thickness</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const curr = selectedAnno.width || 3.5
+                              const next = Math.max(1, curr - 1)
+                              updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[36px] text-center">
+                            {selectedAnno.width || 3.5}px
+                          </span>
+                          <button
+                            onClick={() => {
+                              const curr = selectedAnno.width || 3.5
+                              const next = Math.min(30, curr + 1)
+                              updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
                       </div>
                       <input
                         type="range"
-                        min={2}
+                        min={1}
                         max={30}
                         step={1}
                         value={selectedAnno.width || 3.5}
@@ -1613,21 +1685,231 @@ export default function MapCanvas(props) {
                         }
                         className="w-full cursor-pointer accent-amber-400"
                       />
+                      <div className="grid grid-cols-5 gap-1">
+                        {[2, 4, 8, 14, 22].map((w) => (
+                          <button
+                            key={w}
+                            onClick={() => {
+                              updateAnnoWidth && updateAnnoWidth(selectedAnno.id, w)
+                              requestRender()
+                            }}
+                            className={`rounded-lg border py-1 text-[9px] font-bold transition-all ${
+                              (selectedAnno.width || 3.5) === w
+                                ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
+                                : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
+                            }`}
+                          >
+                            {w}px
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Circle Fill Opacity */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Fill Opacity</span>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {Math.round((selectedAnno.opacity !== undefined ? selectedAnno.opacity : 0.12) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={1.0}
+                        step={0.05}
+                        value={selectedAnno.opacity !== undefined ? selectedAnno.opacity : 0.12}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value)
+                          updateAnnoField && updateAnnoField(selectedAnno.id, { opacity: val })
+                          requestRender()
+                        }}
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
                     </div>
                   </div>
                 )}
 
-                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush') && (
+                {selectedAnno.type === 'pin' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Pin Size / Scale</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const curr = selectedAnno.size || 1
+                              const next = Math.max(0.4, curr - 0.2)
+                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[40px] text-center">
+                            {Math.round((selectedAnno.size || 1) * 100)}%
+                          </span>
+                          <button
+                            onClick={() => {
+                              const curr = selectedAnno.size || 1
+                              const next = Math.min(3, curr + 0.2)
+                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.4}
+                        max={3}
+                        step={0.1}
+                        value={selectedAnno.size || 1}
+                        onChange={(e) => {
+                          updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
+                          requestRender()
+                        }}
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                      <div className="grid grid-cols-4 gap-1">
+                        {[0.6, 1.0, 1.5, 2.0].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: s })
+                              requestRender()
+                            }}
+                            className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
+                          >
+                            {s}x
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Pin Callout / Label</span>
+                      <input
+                        type="text"
+                        value={selectedAnno.label || ''}
+                        onChange={(e) => updateAnnoLabel && updateAnnoLabel(selectedAnno.id, e.target.value)}
+                        className="w-full rounded-xl border border-slate-700/50 bg-slate-950/50 px-3.5 py-2 text-xs font-medium text-slate-100 focus:border-amber-400/50 focus:outline-none"
+                        placeholder="Squad callout..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedAnno.type === 'vehicle' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Vehicle Size</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const curr = selectedAnno.size || 1
+                              const next = Math.max(0.4, curr - 0.2)
+                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[40px] text-center">
+                            {Math.round((selectedAnno.size || 1) * 100)}%
+                          </span>
+                          <button
+                            onClick={() => {
+                              const curr = selectedAnno.size || 1
+                              const next = Math.min(3, curr + 0.2)
+                              updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(next.toFixed(1)) })
+                              requestRender()
+                            }}
+                            className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.4}
+                        max={3}
+                        step={0.1}
+                        value={selectedAnno.size || 1}
+                        onChange={(e) => {
+                          updateAnnoField && updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
+                          requestRender()
+                        }}
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedAnno.type === 'smoke' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Smoke Cloud Radius</span>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">{selectedAnno.r || 15}m</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={5}
+                        max={80}
+                        step={2}
+                        value={selectedAnno.r || 15}
+                        onChange={(e) => {
+                          updateAnnoField && updateAnnoField(selectedAnno.id, { r: parseInt(e.target.value, 10) })
+                          requestRender()
+                        }}
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'compound' || selectedAnno.type === 'ridge') && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Thickness</span>
-                      <span className="font-mono text-[10px] font-bold text-amber-400">
-                        {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
-                      </span>
+                      <span className="text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-500">Line Thickness</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            const curr = selectedAnno.width || 3.5
+                            const next = Math.max(1, curr - 1)
+                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
+                            requestRender()
+                          }}
+                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                        >
+                          <Minus size={11} />
+                        </button>
+                        <span className="font-mono text-[10px] font-bold text-amber-400 min-w-[36px] text-center">
+                          {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
+                        </span>
+                        <button
+                          onClick={() => {
+                            const curr = selectedAnno.width || 3.5
+                            const next = Math.min(30, curr + 1)
+                            updateAnnoWidth && updateAnnoWidth(selectedAnno.id, next)
+                            requestRender()
+                          }}
+                          className="flex h-5 w-5 items-center justify-center rounded bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white"
+                        >
+                          <Plus size={11} />
+                        </button>
+                      </div>
                     </div>
                     <input
                       type="range"
-                      min={2}
+                      min={1}
                       max={30}
                       step={1}
                       value={selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}
@@ -1636,18 +1918,18 @@ export default function MapCanvas(props) {
                       }
                       className="w-full cursor-pointer accent-amber-400"
                     />
-                    <div className="grid grid-cols-3 gap-1">
-                      {STROKE_WIDTH_PRESETS.map((p) => (
+                    <div className="grid grid-cols-4 gap-1">
+                      {[2, 4, 8, 16].map((p) => (
                         <button
-                          key={p.width}
-                          onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p.width)}
+                          key={p}
+                          onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p)}
                           className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                            (selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)) === p.width
+                            (selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)) === p
                               ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
                               : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
                           }`}
                         >
-                          {p.label}
+                          {p}px
                         </button>
                       ))}
                     </div>

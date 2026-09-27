@@ -341,6 +341,127 @@ export default function Sidebar(props) {
                   </>
                 )}
 
+                {selectedAnno.type === 'team' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <SectionTitle>Logo Size</SectionTitle>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {Math.round((selectedAnno.size || 1) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.4}
+                        max={3}
+                        step={0.05}
+                        value={selectedAnno.size || 1}
+                        onChange={(e) =>
+                          props.updateAnnoField &&
+                          props.updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
+                        }
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                      <div className="grid grid-cols-4 gap-1">
+                        {[0.6, 1, 1.5, 2.5].map((s) => (
+                          <button
+                            key={s}
+                            onClick={() =>
+                              props.updateAnnoField && props.updateAnnoField(selectedAnno.id, { size: s })
+                            }
+                            className="rounded-lg border border-slate-800/60 bg-slate-900/40 py-1 text-[9px] font-bold text-slate-400 hover:border-amber-400/40 hover:text-amber-300"
+                          >
+                            {s}x
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {selectedAnno.type === 'pin' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <SectionTitle>Pin Size / Scale</SectionTitle>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {Math.round((selectedAnno.size || 1) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.4}
+                        max={3}
+                        step={0.1}
+                        value={selectedAnno.size || 1}
+                        onChange={(e) =>
+                          props.updateAnnoField &&
+                          props.updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
+                        }
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <SectionTitle>Pin Label</SectionTitle>
+                      <input
+                        type="text"
+                        value={selectedAnno.label || ''}
+                        onChange={(e) => updateAnnoLabel && updateAnnoLabel(selectedAnno.id, e.target.value)}
+                        className="w-full rounded-xl border border-slate-700/60 bg-slate-950/60 px-3 py-2 text-xs font-medium text-slate-100"
+                        placeholder="Squad note..."
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedAnno.type === 'vehicle' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <SectionTitle>Vehicle Size</SectionTitle>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">
+                          {Math.round((selectedAnno.size || 1) * 100)}%
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0.4}
+                        max={3}
+                        step={0.1}
+                        value={selectedAnno.size || 1}
+                        onChange={(e) =>
+                          props.updateAnnoField &&
+                          props.updateAnnoField(selectedAnno.id, { size: parseFloat(e.target.value) })
+                        }
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {selectedAnno.type === 'smoke' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <SectionTitle>Smoke Cloud Radius</SectionTitle>
+                        <span className="font-mono text-[10px] font-bold text-amber-400">{selectedAnno.r || 15}m</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={5}
+                        max={80}
+                        step={2}
+                        value={selectedAnno.r || 15}
+                        onChange={(e) =>
+                          props.updateAnnoField &&
+                          props.updateAnnoField(selectedAnno.id, { r: parseInt(e.target.value, 10) })
+                        }
+                        className="w-full cursor-pointer accent-amber-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {selectedAnno.type === 'circle' && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -359,7 +480,7 @@ export default function Sidebar(props) {
                     </div>
                     <input
                       type="range"
-                      min={20}
+                      min={10}
                       max={2500}
                       step={10}
                       value={Math.round(
@@ -393,17 +514,17 @@ export default function Sidebar(props) {
                   </div>
                 )}
 
-                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'circle') && (
+                {(selectedAnno.type === 'arrow' || selectedAnno.type === 'line' || selectedAnno.type === 'brush' || selectedAnno.type === 'circle' || selectedAnno.type === 'compound' || selectedAnno.type === 'ridge') && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <SectionTitle>Thickness</SectionTitle>
+                      <SectionTitle>Line Thickness</SectionTitle>
                       <span className="font-mono text-[10px] font-bold text-amber-400">
                         {selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}px
                       </span>
                     </div>
                     <input
                       type="range"
-                      min={2}
+                      min={1}
                       max={30}
                       step={1}
                       value={selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)}
@@ -412,18 +533,18 @@ export default function Sidebar(props) {
                       }
                       className="w-full cursor-pointer accent-amber-400"
                     />
-                    <div className="grid grid-cols-3 gap-1">
-                      {STROKE_WIDTH_PRESETS.map((p) => (
+                    <div className="grid grid-cols-4 gap-1">
+                      {[2, 4, 8, 16].map((p) => (
                         <button
-                          key={p.width}
-                          onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p.width)}
+                          key={p}
+                          onClick={() => updateAnnoWidth && updateAnnoWidth(selectedAnno.id, p)}
                           className={`rounded-lg border py-1.5 text-[10px] font-bold transition-all duration-150 ${
-                            (selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)) === p.width
+                            (selectedAnno.width || (selectedAnno.type === 'arrow' ? 4 : 3.5)) === p
                               ? 'border-amber-400/40 bg-amber-400/15 text-amber-300'
                               : 'border-slate-800/60 bg-slate-900/40 text-slate-500 hover:border-slate-700 hover:text-slate-300'
                           }`}
                         >
-                          {p.label}
+                          {p}px
                         </button>
                       ))}
                     </div>

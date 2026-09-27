@@ -154,57 +154,61 @@ function label(ctx, text, x, y, color, bg = 'rgba(7,10,15,0.92)', fontSize = 11,
   ctx.fillText(text, x, y + 0.5 * S)
 }
 
-function drawPin(ctx, x, y, txt, color, S = 1) {
+function drawPin(ctx, x, y, txt, color, S = 1, scale = 1) {
+  const k = Math.max(0.4, Math.min(4, scale || 1)) * S
   ctx.save()
   ctx.beginPath()
-  ctx.ellipse(x, y + 2 * S, 8 * S, 3.5 * S, 0, 0, Math.PI * 2)
+  ctx.ellipse(x, y + 2 * k, 8 * k, 3.5 * k, 0, 0, Math.PI * 2)
   ctx.fillStyle = 'rgba(0,0,0,0.4)'
   ctx.fill()
 
   ctx.strokeStyle = 'rgba(2,6,12,0.9)'
-  ctx.lineWidth = Math.max(3.5, 3.5 * S)
+  ctx.lineWidth = Math.max(3.5, 3.5 * k)
   ctx.beginPath()
   ctx.moveTo(x, y)
-  ctx.lineTo(x, y - 14 * S)
+  ctx.lineTo(x, y - 14 * k)
   ctx.stroke()
 
   ctx.beginPath()
-  ctx.arc(x, y - 18 * S, 7.5 * S, 0, Math.PI * 2)
+  ctx.arc(x, y - 18 * k, 7.5 * k, 0, Math.PI * 2)
   ctx.fillStyle = color
   ctx.fill()
-  ctx.lineWidth = Math.max(1.5, 1.5 * S)
+  ctx.lineWidth = Math.max(1.5, 1.5 * k)
   ctx.strokeStyle = '#ffffff'
   ctx.stroke()
 
-  label(ctx, txt, x, y + 15 * S, '#ffffff', 'rgba(7,10,15,0.92)', 11, S)
+  if (txt) {
+    label(ctx, txt, x, y + 15 * k, '#ffffff', 'rgba(7,10,15,0.92)', 11, k)
+  }
   ctx.restore()
 }
 
-function drawVehicle(ctx, x, y, open, S = 1) {
-  const s = 12 * S
+function drawVehicle(ctx, x, y, open, S = 1, scale = 1) {
+  const k = Math.max(0.4, Math.min(4, scale || 1)) * S
+  const s = 12 * k
   ctx.save()
   ctx.translate(x, y)
   ctx.fillStyle = open ? 'rgba(16,185,129,0.25)' : 'rgba(100,116,139,0.3)'
   ctx.strokeStyle = open ? '#10b981' : '#64748b'
-  ctx.lineWidth = Math.max(2.0, 2.0 * S)
+  ctx.lineWidth = Math.max(2.0, 2.0 * k)
   ctx.beginPath()
-  roundRectPath(ctx, -s, -s, s * 2, s * 2, 4 * S)
+  roundRectPath(ctx, -s, -s, s * 2, s * 2, 4 * k)
   ctx.fill()
   ctx.stroke()
 
   ctx.fillStyle = open ? '#34d399' : '#94a3b8'
   ctx.beginPath()
-  roundRectPath(ctx, -7 * S, -4 * S, 14 * S, 8 * S, 2 * S)
+  roundRectPath(ctx, -7 * k, -4 * k, 14 * k, 8 * k, 2 * k)
   ctx.fill()
   ctx.beginPath()
-  roundRectPath(ctx, -5 * S, -7 * S, 10 * S, 5 * S, 2 * S)
+  roundRectPath(ctx, -5 * k, -7 * k, 10 * k, 5 * k, 2 * k)
   ctx.fill()
 
   if (open) {
-    ctx.font = `900 ${Math.max(9, Math.round(9 * S))}px Inter, sans-serif`
+    ctx.font = `900 ${Math.max(9, Math.round(9 * k))}px Inter, sans-serif`
     ctx.fillStyle = '#34d399'
     ctx.textAlign = 'center'
-    ctx.fillText('SPAWN', 0, -s - 4 * S)
+    ctx.fillText('SPAWN', 0, -s - 4 * k)
   }
   ctx.restore()
 }
@@ -649,29 +653,34 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     ctx.restore()
 
   } else if (a.type === 'smoke' && P.length > 0) {
-    const r = Math.max(15 * (X.mapScale || 1), 4 * S)
+    const rWorld = typeof a.r === 'number' && a.r > 0 ? a.r : 15
+    const r = Math.max(rWorld * (X.mapScale || 1), 4 * S)
     ctx.beginPath()
     ctx.arc(P[0][0], P[0][1], r, 0, Math.PI * 2)
-    ctx.fillStyle = 'rgba(203, 213, 225, 0.35)'
+    ctx.fillStyle = hexA(a.color || '#cbd5e1', typeof a.opacity === 'number' ? a.opacity : 0.35)
     ctx.fill()
-    ctx.strokeStyle = '#cbd5e1'
-    ctx.lineWidth = Math.max(2.0, 2.0 * S)
+    ctx.strokeStyle = a.color || '#cbd5e1'
+    ctx.lineWidth = Math.max(2.0, (a.width || 2.0) * S)
     ctx.setLineDash([])
     ctx.stroke()
-    label(ctx, 'SMOKE WALL (15m)', P[0][0], P[0][1] - r - 8 * S, '#e2e8f0', 'rgba(15,23,42,0.9)', 10, S)
+    if (a.label) {
+      label(ctx, a.label, P[0][0], P[0][1] - r - 8 * S, '#e2e8f0', 'rgba(15,23,42,0.9)', 10, S)
+    }
 
   } else if (a.type === 'ridge' && P.length > 1) {
-    ctx.lineWidth = Math.max(3.0, 3.0 * S)
-    ctx.strokeStyle = '#f59e0b'
+    ctx.lineWidth = Math.max(2.0, (a.width || 3.0) * S)
+    ctx.strokeStyle = a.color || '#f59e0b'
     ctx.setLineDash([])
     ctx.beginPath()
     ctx.moveTo(P[0][0], P[0][1])
     ctx.lineTo(P[1][0], P[1][1])
     ctx.stroke()
 
-    const midX = (P[0][0] + P[1][0]) / 2
-    const midY = (P[0][1] + P[1][1]) / 2
-    label(ctx, 'RIDGE DMR SIGHTLINE', midX, midY - 10 * S, '#f59e0b', 'rgba(7,10,15,0.92)', 10, S)
+    if (a.label) {
+      const midX = (P[0][0] + P[1][0]) / 2
+      const midY = (P[0][1] + P[1][1]) / 2
+      label(ctx, a.label, midX, midY - 10 * S, a.color || '#f59e0b', 'rgba(7,10,15,0.92)', 10, S)
+    }
 
   } else if (a.type === 'compound' && P.length > 1) {
     const x = Math.min(P[0][0], P[1][0])
@@ -679,9 +688,9 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     const w = Math.abs(P[1][0] - P[0][0])
     const h = Math.abs(P[1][1] - P[0][1])
     ctx.setLineDash([])
-    ctx.lineWidth = Math.max(2.5, 2.5 * S)
+    ctx.lineWidth = Math.max(2.0, (a.width || 2.5) * S)
     ctx.strokeStyle = a.color
-    ctx.fillStyle = hexA(a.color, 0.10)
+    ctx.fillStyle = hexA(a.color, typeof a.opacity === 'number' ? a.opacity : 0.10)
     ctx.beginPath()
     roundRectPath(ctx, x, y, w, h, 4 * S)
     ctx.fill()
@@ -698,10 +707,13 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
     const cx = P[0][0]
     const cy = P[0][1]
 
+    const strokeWidth = typeof a.width === 'number' && a.width > 0 ? a.width : 3.5
+    const alpha = typeof a.opacity === 'number' ? Math.max(0, Math.min(1, a.opacity)) : 0.12
+
     ctx.setLineDash([])
-    ctx.lineWidth = Math.max(2.0, (a.width || 3.5) * S)
+    ctx.lineWidth = Math.max(1.0, strokeWidth * S)
     ctx.strokeStyle = a.color
-    ctx.fillStyle = hexA(a.color, 0.12)
+    ctx.fillStyle = hexA(a.color, alpha)
     ctx.beginPath()
     ctx.arc(cx, cy, r, 0, Math.PI * 2)
     ctx.fill()
@@ -724,9 +736,9 @@ function drawAnno(ctx, a, X, Y, S = 1, selectedId = null, Z = 1) {
   } else if (a.type === 'team' && P.length > 0) {
     drawTeam(ctx, a, P[0][0], P[0][1], S, Z)
   } else if (a.type === 'pin') {
-    drawPin(ctx, P[0][0], P[0][1], a.label || 'P', a.color, S)
+    drawPin(ctx, P[0][0], P[0][1], a.label || '', a.color, S, a.size || 1)
   } else if (a.type === 'vehicle') {
-    drawVehicle(ctx, P[0][0], P[0][1], !!a.open, S)
+    drawVehicle(ctx, P[0][0], P[0][1], !!a.open, S, a.size || 1)
   }
 
   // Draw Glowing Cyan Selection Aura / Bounding Box when annotation is selected
