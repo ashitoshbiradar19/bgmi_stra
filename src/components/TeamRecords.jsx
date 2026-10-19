@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Trophy, Users, Target, Shield, Sword, RotateCw, TrendingUp, ChevronRight, ChevronDown, Award, Star, Search, X, Image as ImageIcon } from 'lucide-react'
 import { TEAM_RECORDS, HEAD_TO_HEAD, PRIZE_MONEY, MVP_AWARDS, STRENGTH_MATRIX } from '../data/teamRecords'
-import { TEAMS } from '../data/teams'
+import { TEAMS, teamSubtitle } from '../data/teams'
+import { ALL_COUNTRIES } from '../data/countries'
+import CountryFilter from './CountryFilter'
 
 function SectionLabel({ children, className = '' }) {
   return (
@@ -45,6 +47,7 @@ export default function TeamRecords({ onApply }) {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [activeTab, setActiveTab] = useState('teams')
   const [searchQuery, setSearchQuery] = useState('')
+  const [country, setCountry] = useState(ALL_COUNTRIES)
 
   const tabs = [
     { id: 'teams', label: 'Teams' },
@@ -70,14 +73,15 @@ export default function TeamRecords({ onApply }) {
   }, [searchQuery])
 
   const filteredAllTeams = useMemo(() => {
+    const byCountry = country === ALL_COUNTRIES ? TEAMS : TEAMS.filter((t) => t.country === country)
     const q = searchQuery.trim().toLowerCase()
-    if (!q) return TEAMS
+    if (!q) return byCountry
     const tokens = q.split(/\s+/).filter(Boolean)
-    return TEAMS.filter((t) => {
+    return byCountry.filter((t) => {
       const text = `${t.name} ${t.short} ${t.org || ''} ${t.event || ''} ${t.rank || ''}`.toLowerCase()
       return tokens.every((token) => text.includes(token))
     })
-  }, [searchQuery])
+  }, [searchQuery, country])
 
   const selected = useMemo(() => {
     if (selectedTeam && filteredTeams.some((t) => t.id === selectedTeam)) {
@@ -329,7 +333,7 @@ export default function TeamRecords({ onApply }) {
               Official Team Logos
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-              All 145+ official team logos with team names displayed underneath. Click any logo to place on the strategy board.
+              All {TEAMS.length} team logos — the KIE leaderboard plus international orgs. Filter by country, then click any logo to place it on the strategy board.
             </p>
           </div>
 
@@ -356,6 +360,7 @@ export default function TeamRecords({ onApply }) {
 
           {/* Logos Grid */}
           <div className="space-y-2">
+            <CountryFilter teams={TEAMS} value={country} onChange={setCountry} accent="cyan" />
             <SectionLabel>All Logos ({filteredAllTeams.length})</SectionLabel>
             <div className="grid grid-cols-3 gap-2 max-h-96 overflow-y-auto pr-1">
               {filteredAllTeams.map((team) => (
@@ -367,7 +372,7 @@ export default function TeamRecords({ onApply }) {
                     }
                   }}
                   className="group flex flex-col items-center justify-between rounded-xl border border-slate-800/50 bg-[#0D1525] p-2.5 transition-all duration-200 hover:border-cyan-400/40 hover:bg-slate-800/40 hover:shadow-[0_0_12px_rgba(6,182,212,0.15)] active:scale-95 text-center"
-                  title={`${team.name} · #${team.rank || '-'}`}
+                  title={`${team.name} · ${teamSubtitle(team)}`}
                 >
                   <span
                     className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border p-1 text-xs font-black text-white group-hover:scale-105 transition-transform"
@@ -406,7 +411,9 @@ export default function TeamRecords({ onApply }) {
               ))}
               {filteredAllTeams.length === 0 && (
                 <p className="col-span-3 py-6 text-center text-xs text-slate-500">
-                  No logos found matching "{searchQuery}"
+                  {searchQuery.trim()
+                    ? `No logos found matching "${searchQuery.trim()}"`
+                    : 'No teams in this country yet.'}
                 </p>
               )}
             </div>

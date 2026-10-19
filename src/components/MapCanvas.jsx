@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeView, renderScene, STAGE_COLORS, STAGE_RADII } from '../lib/render'
 import { renderExportCanvas, downloadCanvas, exportFilename, ensureFontsReady } from '../lib/export'
 import { Plus, Minus, RotateCcw, PenLine, Type, Trash2, X, Shield, Search, PanelRightClose, PanelRightOpen, Square, Palette } from 'lucide-react'
-import { TEAMS } from '../data/teams'
+import { TEAMS, teamBadge, teamSubtitle } from '../data/teams'
+import { ALL_COUNTRIES } from '../data/countries'
 import { KEY_TO_TOOL } from '../data/tools'
 // Selection transforms. The overlay is drawn from the SAME helpers the pointer
 // uses to pick a grip, so what you see is what you can grab.
@@ -11,6 +12,7 @@ import { drawSelectionOverlay } from '../lib/selectionOverlay'
 import { resizeAnno, rotateAnnoTo, degToRad } from '../lib/geometry'
 import { createMode, withDefaults, propsFor, SEG_MIN_LENGTH } from '../lib/annoTypes'
 import SelectionInspector from './PropControls'
+import CountryFilter from './CountryFilter'
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36)
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v))
@@ -129,20 +131,25 @@ export default function MapCanvas(props) {
 
   const [textModal, setTextModal] = useState(null)
   const [teamQuery, setTeamQuery] = useState('')
+  const [teamCountry, setTeamCountry] = useState(ALL_COUNTRIES)
 
+  // Search and country filter compose: a country narrows the grid, and the text
+  // box narrows it further. Both are UI state only — nothing here touches the
+  // board document.
   const filteredTeams = useMemo(() => {
     const q = teamQuery.trim().toLowerCase()
-    if (!q) return TEAMS
+    const inCountry = teamCountry === ALL_COUNTRIES ? TEAMS : TEAMS.filter((t) => t.country === teamCountry)
+    if (!q) return inCountry
     const cleanQ = q.replace(/#/g, '').replace(/rank\s*/gi, '').trim()
     const tokens = cleanQ.split(/\s+/).filter(Boolean)
-    return TEAMS.filter((t) => {
+    return inCountry.filter((t) => {
       const playersStr = t.players ? t.players.join(' ') : ''
       const orgStr = t.org || ''
       const rankStr = String(t.rank)
       const textToMatch = `${t.name} ${t.short} ${rankStr} ${playersStr} ${orgStr}`.toLowerCase()
       return tokens.every((tok) => textToMatch.includes(tok))
     })
-  }, [teamQuery])
+  }, [teamQuery, teamCountry])
 
   const rafRef = useRef(null)
   const dirtyRef = useRef(true)
@@ -892,13 +899,16 @@ export default function MapCanvas(props) {
         a = withDefaults({ id: uid(), type: 'compound', points: [it.start, it.end] }, { color: '#f97316', width: pw || 2.5 })
       } else if (it.mode === 'flight' || it.mode === 'flight1' || it.mode === 'flight2') {
         const color = it.mode === 'flight2' ? '#a855f7' : '#38bdf8'
-        a = withDefaults({ id: uid(), type: it.mode, points: [it.start, it.end] }, { color })
+        a = withDefaults({ id: uid(), type: it.mode, points: [it.start, it.end] }, { color, width: pw })
       } else {
         // Radius shapes are dragged out from the centre, so `r` comes from the
         // drag rather than a default — otherwise every new circle would be the
         // same size. The second point is kept for backwards compatibility with
         // boards saved before `r` existed; `radiusOf` prefers `r` when present.
-        const patch = { color: pc }
+        // `width: pw` must stay here: the drag preview (`tempAnno`) already
+        // draws at the chosen Tool Thickness, so committing without it makes
+        // the line/arrow snap back to the type default on release.
+        const patch = { color: pc, width: pw }
         if (RADIUS_TOOLS.has(it.kind)) {
           patch.r = Math.round(Math.hypot(it.end[0] - it.start[0], it.end[1] - it.start[1]))
         }
@@ -1278,6 +1288,7 @@ export default function MapCanvas(props) {
                 </button>
               )}
             </div>
+            <CountryFilter teams={TEAMS} value={teamCountry} onChange={setTeamCountry} accent="amber" />
             <div className="grid grid-cols-3 gap-1.5 max-h-64 overflow-y-auto pr-1">
               {filteredTeams.map((t) => (
                 <div
@@ -1312,7 +1323,7 @@ export default function MapCanvas(props) {
                     requestRender()
                   }}
                   className="group flex cursor-grab flex-col items-center rounded-lg border border-slate-800/50 bg-[#0D1525] p-1.5 transition-colors duration-150 hover:border-amber-400/30 hover:bg-slate-800/30 active:cursor-grabbing"
-                  title={`${t.name} · #${t.rank} ${t.event} — click or drag onto the map`}
+                  title={`${t.name} · ${teamSubtitle(t)} ${t.event} — click or drag onto the map`}
                 >
                   <span
                     className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border p-1 text-[10px] font-black text-white"
@@ -1347,7 +1358,7 @@ export default function MapCanvas(props) {
                     {t.name}
                   </div>
                   <div className="truncate text-center text-[8px] font-semibold text-slate-600">
-                    #{t.rank}
+                    {teamBadge(t)}
                   </div>
                 </div>
               ))}

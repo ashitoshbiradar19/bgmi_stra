@@ -73,10 +73,11 @@ hit-test branch.
 | `src/lib/storage.js` | localStorage autosave + saved-strategy CRUD + JSON import/export. |
 | `src/lib/share.js` | Board state ⇄ URL hash (LZW + base64url). |
 | `src/lib/mapGen.js` | Procedural fallback map art for maps with no image. |
-| `src/data/` | Static config: `maps.js`, `teams.js`, `colors.js`, `tournament.js`, `teamRecords.js`, **`tools.js`**. |
+| `src/data/` | Static config: `maps.js`, `teams.js`, `colors.js`, `tournament.js`, `teamRecords.js`, **`tools.js`**. Team rows: `teamFactory.js` builds a record, `intlTeams.js` holds the non-KIE orgs, `countries.js` maps the ISO country code on every team to a name + flag. |
 | `src/index.css` | Tailwind import, CSS custom properties, glass/gradient utilities, tooltip styles, keyframes, safe-area insets. |
-| `public/maps/` | Map imagery. `public/logos/` | Team logo PNGs. |
-| `src/components/` | `Sidebar`, `Toolbar`, `MapCanvas`, `ZonePanel`, `TeamRecords`, `TrainingPanel`, `Footer`, `ExportDialog`, `ExportPreview`, `PropControls`, `ui`. |
+| `public/maps/` | Map imagery. `public/logos/` | Team logo PNGs, one per short code. |
+| `assets/team-logos/` | Editable SVG sources for the international crests — run `npm run logos:generate` to re-rasterise them into `public/logos/`. |
+| `src/components/` | `Sidebar`, `Toolbar`, `MapCanvas`, `ZonePanel`, `TeamRecords`, `TrainingPanel`, `Footer`, `ExportDialog`, `ExportPreview`, `PropControls`, `CountryFilter`, `ui`. |
 | `tests/` | `node:test` unit suites. Pure logic only — no DOM, no browser. |
 
 ### THE THREE CONCEPTS YOU MUST UNDERSTAND

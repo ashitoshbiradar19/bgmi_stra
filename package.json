@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --import ./tests/setup.mjs --test tests/*.test.js",
+    "logos:generate": "node --import ./tests/setup.mjs scripts/generate-intl-logos.mjs",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",

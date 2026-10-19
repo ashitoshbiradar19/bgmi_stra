@@ -1,36 +1,16 @@
-// KRAFTON India Esports (KIE) Global Leaderboard — all 145 teams + bonus teams.
-// Source: https://kraftonindiaesports.com/rankings/allTeams (official KIE website, live).
-// Each team carries a real logo URL from KIE's CloudFront CDN so logos render on the map.
+// The full team roster: the KRAFTON India Esports (KIE) global leaderboard
+// (source: https://kraftonindiaesports.com/rankings/allTeams, live) followed by
+// the international organisations in `src/data/intlTeams.js`.
+//
+// Each team carries a `country` code (ISO alpha-2, see `src/data/countries.js`)
+// so both team pickers can filter by country. KIE leaderboard teams are Indian
+// orgs, so the factory defaults them to 'IN'.
 
-const PAL = [
-  ['#f43f5e', '#1c1420'],
-  ['#38bdf8', '#0c1a2e'],
-  ['#34d399', '#062820'],
-  ['#facc15', '#29210a'],
-  ['#a78bfa', '#1a1230'],
-  ['#fb923c', '#241409'],
-  ['#2dd4bf', '#05201c'],
-  ['#e879f9', '#24102b'],
-  ['#f472b6', '#261019'],
-  ['#818cf8', '#0f1230'],
-]
+import { team } from './teamFactory'
+import { INTL_TEAMS } from './intlTeams'
+import { countryFlag, countryLabel } from './countries'
 
-function team(name, short, rank, i, opts = {}) {
-  const [color, color2] = PAL[i % PAL.length]
-  return {
-    id: short.toLowerCase().replace(/[^a-z0-9]+/g, '') || name.toLowerCase().replace(/[^a-z0-9]+/g, '') ,
-    name,
-    short,
-    rank,
-    color,
-    color2,
-    event: 'KIE Global Leaderboard 2026',
-    logoUrl: opts.logo === false ? undefined : `logos/${short.toUpperCase()}.png`,
-    ...(opts.players ? { players: opts.players } : {}),
-  }
-}
-
-export const TEAMS = [
+export const KIE_TEAMS = [
   team('IQOO SOUL', 'SOUL', 1, 0),
   team('IQOO ORANGUTAN', 'OG', 2, 1),
   team('Divine Gaming', 'DG', 3, 2),
@@ -200,8 +180,25 @@ export const TEAMS = [
   team('Vijay Esports', 'VJ', 162, 161),
 ]
 
+export const TEAMS = [...KIE_TEAMS, ...INTL_TEAMS]
+
 export const TEAM_MAP = Object.fromEntries(TEAMS.map((t) => [t.id, t]))
 
 export function getTeam(id) {
   return TEAM_MAP[id] || null
+}
+
+// One-line subtitle for a team tile. Ranked teams show their leaderboard
+// position; international teams have no rank, so they show their country.
+// Used by both team pickers so the wording can never drift between them.
+export function teamSubtitle(t) {
+  if (!t) return ''
+  if (t.rank) return `#${t.rank}`
+  return countryLabel(t.country)
+}
+
+// Compact version for the narrow grid tiles, where only a flag fits.
+export function teamBadge(t) {
+  if (!t) return ''
+  return t.rank ? `#${t.rank}` : countryFlag(t.country)
 }
