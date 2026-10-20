@@ -2,7 +2,7 @@
 
 > **Source:** [Esports Charts (escharts.com/teams/pubg-mobile)](https://escharts.com/teams/pubg-mobile)  
 > **Total Extracted Teams:** 322 International Teams  
-> **Local Logos Directory:** [`pubg_mobile_team_logos/`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/) (All 322 high-resolution PNGs downloaded)  
+> **Local Logos Directory:** [`pubg_mobile_team_logos/`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/) (All 327 high-resolution PNGs downloaded)  
 > **JSON Dataset:** [`pubg_mobile_international_teams_logos.json`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_international_teams_logos.json)  
 
 ---
@@ -38,7 +38,31 @@ This document compiles the comprehensive roster of international PUBG Mobile esp
 
 ---
 
-## Full Master Table (322 International Teams)
+### 2026 Qualified Champions: South Korea (5) & Japan (5) Teams
+
+The following 10 elite squads represent the top tier of the 2026 South Korean (PMPS / KEL) and Japanese (PMJL) competitive circuits, securing prestigious championship titles and qualifications for international showdowns (**PMGC 2026** and **BMIC 2026**):
+
+#### South Korean Teams (5)
+| # | Logo | Team Name | Tag | Organization | Qualification & Championship Status | Local Logo Path | High-Res Logo Source |
+|:---:|:---:|-----------|:---:|--------------|--------------------------------------|-----------------|----------------------|
+| 1 | <img src="https://liquipedia.net/commons/images/d/de/Nongshim_RedForce_allmode.png" width="32" height="32" alt="Nongshim RedForce"/> | **Nongshim RedForce** | `NRF` | Nongshim RedForce | **KEL 2026 Champion** (Qualified for PMGC 2026) | [`pubg_mobile_team_logos/nongshim-redforce.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/nongshim-redforce.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/d/de/Nongshim_RedForce_allmode.png) |
+| 2 | <img src="https://liquipedia.net/commons/images/b/ba/Dplus_lightmode.png" width="32" height="32" alt="Dplus KIA"/> | **Dplus KIA** | `DK` / `DPL` | Dplus KIA | **KEL 2026 Runner-up** | [`pubg_mobile_team_logos/dplus-kia.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/dplus-kia.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/b/ba/Dplus_lightmode.png) / [Wikipedia SVG](https://upload.wikimedia.org/wikipedia/commons/2/20/DPlus_KIA_Logo.svg) |
+| 3 | <img src="https://liquipedia.net/commons/images/0/0c/DRX_2026_lightmode.png" width="32" height="32" alt="DRX"/> | **DRX** | `DRX` | DRX | **Defending BMIC Champion** (Qualified via PMPS 2026 S2) | [`pubg_mobile_team_logos/drx.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/drx.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/0/0c/DRX_2026_lightmode.png) |
+| 4 | <img src="https://liquipedia.net/commons/images/2/26/FOCUS_2024_allmode.png" width="32" height="32" alt="FOCUS"/> | **FOCUS** | `FOCUS` | FOCUS Esports | **Qualified via PMPS 2026 S2** | [`pubg_mobile_team_logos/focus.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/focus.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/2/26/FOCUS_2024_allmode.png) |
+| 5 | <img src="https://liquipedia.net/commons/images/a/a1/Game_PT_lightmode.png" width="32" height="32" alt="GAME PT"/> | **GAME PT** | `GAME PT` / `GPT` | GAME PT | **Qualified via PMPS 2026 S2** | [`pubg_mobile_team_logos/game-pt.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/game-pt.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/a/a1/Game_PT_lightmode.png) |
+
+#### Japanese Teams (5)
+| # | Logo | Team Name | Tag | Organization | Qualification & Championship Status | Local Logo Path | High-Res Logo Source |
+|:---:|:---:|-----------|:---:|--------------|--------------------------------------|-----------------|----------------------|
+| 1 | <img src="https://liquipedia.net/commons/images/c/c1/Valor_PUBGM_lightmode.png" width="32" height="32" alt="Valor"/> | **Valor** | `VALOR` | Valor Esports | **PMJL 2026 Phase 2 Champion** (Qualified for PMGC 2026) | [`pubg_mobile_team_logos/valor.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/valor.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/c/c1/Valor_PUBGM_lightmode.png) |
+| 2 | <img src="https://liquipedia.net/commons/images/9/98/REIGNITE_2022_allmode.png" width="32" height="32" alt="REIGNITE"/> | **REIGNITE** | `RIG` | REIGNITE Entertainment | **PMJL 2026 Phase 2 2nd Place** (BMIC Qualified) | [`pubg_mobile_team_logos/reignite.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/reignite.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/9/98/REIGNITE_2022_allmode.png) / [Wikipedia](https://upload.wikimedia.org/wikipedia/en/6/65/Reignite_logo.png) |
+| 3 | <img src="https://liquipedia.net/commons/images/a/ae/Versus_lightmode.png" width="32" height="32" alt="Versus"/> | **Versus** | `VERSUS` | Versus Gaming | **PMJL 2026 Phase 2 3rd Place** | [`pubg_mobile_team_logos/versus.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/versus.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/a/ae/Versus_lightmode.png) |
+| 4 | <img src="https://liquipedia.net/commons/images/4/4b/MAKING_THE_ROAD_2025_allmode.png" width="32" height="32" alt="MAKING THE ROAD"/> | **MAKING THE ROAD** | `MTR` | MAKING THE ROAD | **PMJL 2026 Phase 2 4th Place** | [`pubg_mobile_team_logos/making-the-road.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/making-the-road.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/4/4b/MAKING_THE_ROAD_2025_allmode.png) |
+| 5 | <img src="https://liquipedia.net/commons/images/8/83/KINOTROPE_gaming_lightmode.png" width="32" height="32" alt="KINOTROPE gaming"/> | **KINOTROPE gaming** | `KG` / `KINOTROPE` | KINOTROPE gaming | **PMJL 2026 Phase 2 5th Place** | [`pubg_mobile_team_logos/kinotrope-gaming.png`](file:///Users/ashitoshbiradar/Documents/roughfolder/pubg_mobile_team_logos/kinotrope-gaming.png) | [Liquipedia CDN](https://liquipedia.net/commons/images/8/83/KINOTROPE_gaming_lightmode.png) |
+
+---
+
+## Full Master Table (327 International Teams)
 
 | # | Logo | Team Name | Short | Organization | Prize Money | Tournaments | Peak Viewers | Escharts Profile | Logo CDN URL |
 |:---:|:---:|-----------|:-----:|--------------|:-----------:|:-----------:|:------------:|:----------------:|--------------|
@@ -364,3 +388,8 @@ This document compiles the comprehensive roster of international PUBG Mobile esp
 | 320 | <img src="https://cdnr.escharts.com/uploads/public/65e/84d/b86/65e84db86749f524385879.png" width="28" height="28" alt="ASA KOREA"/> | **ASA KOREA** | `ASA.K` | — | — | 5 | 2 897 | [Profile](https://escharts.com/teams/pubg-mobile/asa-korea) | [CDN Link](https://cdnr.escharts.com/uploads/public/65e/84d/b86/65e84db86749f524385879.png) |
 | 321 | <img src="https://cdnr.escharts.com/uploads/public/65e/84f/22e/65e84f22e4a31456801496.png" width="28" height="28" alt="Seongnam GE"/> | **Seongnam GE** | `Seongnam.GE` | — | — | 5 | 2 897 | [Profile](https://escharts.com/teams/pubg-mobile/seongnam-ge) | [CDN Link](https://cdnr.escharts.com/uploads/public/65e/84f/22e/65e84f22e4a31456801496.png) |
 | 322 | <img src="https://cdnr.escharts.com/uploads/public/635/794/e80/635794e804348311370357.png" width="28" height="28" alt="vanquish"/> | **vanquish** | `VQ` | — | — | 7 | 2 404 | [Profile](https://escharts.com/teams/pubg-mobile/vanquish) | [CDN Link](https://cdnr.escharts.com/uploads/public/635/794/e80/635794e804348311370357.png) |
+| 323 | <img src="https://liquipedia.net/commons/images/2/26/FOCUS_2024_allmode.png" width="28" height="28" alt="FOCUS"/> | **FOCUS** | `FOCUS` | FOCUS Esports | $12 500 | 14 | 128 500 | [Profile](https://liquipedia.net/pubgmobile/FOCUS) | [CDN Link](https://liquipedia.net/commons/images/2/26/FOCUS_2024_allmode.png) |
+| 324 | <img src="https://liquipedia.net/commons/images/c/c1/Valor_PUBGM_lightmode.png" width="28" height="28" alt="Valor"/> | **Valor** | `VALOR` | Valor Esports | $28 400 | 12 | 142 800 | [Profile](https://liquipedia.net/pubgmobile/Valor) | [CDN Link](https://liquipedia.net/commons/images/c/c1/Valor_PUBGM_lightmode.png) |
+| 325 | <img src="https://liquipedia.net/commons/images/9/98/REIGNITE_2022_allmode.png" width="28" height="28" alt="REIGNITE"/> | **REIGNITE** | `RIG` | REIGNITE Entertainment | $22 800 | 18 | 135 600 | [Profile](https://liquipedia.net/pubgmobile/REIGNITE) | [CDN Link](https://liquipedia.net/commons/images/9/98/REIGNITE_2022_allmode.png) |
+| 326 | <img src="https://liquipedia.net/commons/images/a/ae/Versus_lightmode.png" width="28" height="28" alt="Versus"/> | **Versus** | `VERSUS` | Versus Gaming | $16 200 | 10 | 98 400 | [Profile](https://liquipedia.net/pubgmobile/Versus) | [CDN Link](https://liquipedia.net/commons/images/a/ae/Versus_lightmode.png) |
+| 327 | <img src="https://liquipedia.net/commons/images/4/4b/MAKING_THE_ROAD_2025_allmode.png" width="28" height="28" alt="MAKING THE ROAD"/> | **MAKING THE ROAD** | `MTR` | MAKING THE ROAD | $14 000 | 11 | 92 100 | [Profile](https://liquipedia.net/pubgmobile/MAKING_THE_ROAD) | [CDN Link](https://liquipedia.net/commons/images/4/4b/MAKING_THE_ROAD_2025_allmode.png) |

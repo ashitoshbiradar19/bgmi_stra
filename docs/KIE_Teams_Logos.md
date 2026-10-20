@@ -172,7 +172,7 @@ Total teams: 145
 | Reckoning Esports | Present | Rank 13 (RGE) | https://d2tx97mxhhykfs.cloudfront.net/team480/RGE.png |
 | Revenant XSpark | Present | Rank 10 (RNTX) | https://d2tx97mxhhykfs.cloudfront.net/team480/RNTX.png |
 | Apex Gaming | Present | Rank 7 (TAG) | https://d2tx97mxhhykfs.cloudfront.net/team480/TAG.png |
-| Team Outrage | Added (Rank 146) | OUTR | Non-KIE (Fallback Badge) |
+| Team Outrage | Added (Rank 146) | OUTR | https://liquipedia.net/commons/images/3/33/Team_Outrage_darkmode.png |
 | Team Soul | Present | Rank 1 (SOUL) | https://d2tx97mxhhykfs.cloudfront.net/team480/SOUL.png |
 | Team Tamilas | Present | Rank 21 (TT) | https://d2tx97mxhhykfs.cloudfront.net/team480/TT.png |
 | Vasista Esports | Present | Rank 11 (VE) | https://d2tx97mxhhykfs.cloudfront.net/team480/VE.png |

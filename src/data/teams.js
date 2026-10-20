@@ -157,7 +157,6 @@ export const KIE_TEAMS = [
   team('IMPRNT ESPORTS', 'IMPT', 144, 143),
   team('7 GODS ESPORTS', '7GS', 145, 144),
   team('Team Outrage', 'OUTR', 146, 145, {
-    logo: false,
     players: ['Omega (IGL)', 'Slug', 'NinjaBoi', 'Knight', 'Coach Amit'],
   }),
   team('Elite Nova Esports', 'ELTE', 147, 146, {
