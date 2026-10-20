@@ -1,5 +1,6 @@
 import { MAP_TOURNAMENT_CONFIGS } from '../data/tournament'
 import { getTeam } from '../data/teams'
+import { drawMapDetail } from './mapDetail'
 import {
   rotOf,
   sizeOf,
@@ -1290,6 +1291,25 @@ export function renderScene(ctx, W, H, s) {
   ctx.beginPath()
   ctx.rect(X(0), Y(0), mapSize * Z, mapSize * Z)
   ctx.clip()
+
+  // Vector detail that keeps the map readable past the point where the
+  // low-resolution base JPEG goes soft. Drawn under the grid and the tactical
+  // annotations, and gated on Z so it costs nothing while zoomed out.
+  drawMapDetail(ctx, {
+    mapId,
+    image,
+    X,
+    Y,
+    mapSize,
+    S,
+    pxPerM: Z,
+    view: {
+      x0: -v.ox / Z,
+      y0: -v.oy / Z,
+      x1: (W - v.ox) / Z,
+      y1: (H - v.oy) / Z,
+    },
+  })
 
   drawGrid(ctx, W, H, mapSize, gridOn, minorGridOn, X, Y, Z, S)
   drawTournamentOverlays(ctx, mapId, X, Y, t, mapSize, showHeatmap, showContours, S)
