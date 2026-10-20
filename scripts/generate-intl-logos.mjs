@@ -11,14 +11,17 @@
 // 48px tile sizes used by the team pickers.
 //
 // The SVG sources are kept in `assets/team-logos/` so a crest can be tweaked and
-// regenerated. To use an org's real logo instead, just drop a square PNG with
-// the same file name over `public/logos/<SHORT>.png` — nothing else to change.
+// regenerated. Orgs whose real logo was harvested into `public/logos/<SHORT>.png`
+// are listed in `assets/team-logos/real-logos.json` and are skipped, so a
+// regeneration never overwrites a real crest. To swap an org onto a real logo
+// manually, drop a square PNG with the same file name over
+// `public/logos/<SHORT>.png` and add its short code to that manifest.
 //
 // Rasterising uses macOS `qlmanage` (WebKit). On other platforms the SVG files
 // are still written and can be converted with any SVG rasteriser; the app is
 // happy with a `.png` produced elsewhere.
 
-import { mkdirSync, writeFileSync, renameSync, rmSync, existsSync } from 'node:fs'
+import { mkdirSync, writeFileSync, renameSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -28,6 +31,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SVG_DIR = path.join(ROOT, 'assets', 'team-logos')
 const OUT_DIR = path.join(ROOT, 'public', 'logos')
 const SIZE = 256
+
+// Shorts whose `public/logos/<SHORT>.png` is an org's real logo (harvested from
+// the official esports API). Regenerating those would throw the real crest away,
+// so the manifest lists them and the loop below skips them.
+const REAL_LOGOS = (() => {
+  const manifest = path.join(SVG_DIR, 'real-logos.json')
+  if (!existsSync(manifest)) return new Set()
+  try {
+    return new Set(JSON.parse(readFileSync(manifest, 'utf8')))
+  } catch {
+    return new Set()
+  }
+})()
 
 function fitFontSize(text) {
   // Helvetica Bold averages ~0.62em per glyph at these weights; 168px is the
@@ -96,7 +112,12 @@ mkdirSync(OUT_DIR, { recursive: true })
 
 let written = 0
 let failed = 0
+let skipped = 0
 INTL_TEAMS.forEach((team, i) => {
+  if (REAL_LOGOS.has(team.short)) {
+    skipped += 1
+    return
+  }
   const svgPath = path.join(SVG_DIR, `${team.short}.svg`)
   writeFileSync(svgPath, crestSvg(team, i))
   const pngPath = path.join(OUT_DIR, `${team.short}.png`)
@@ -108,4 +129,6 @@ INTL_TEAMS.forEach((team, i) => {
   }
 })
 
-console.log(`crest generation: ${written} PNG written, ${failed} failed (${INTL_TEAMS.length} international teams)`)
+console.log(
+  `crest generation: ${written} PNG written, ${failed} failed, ${skipped} real logos kept (${INTL_TEAMS.length} international teams)`,
+)
